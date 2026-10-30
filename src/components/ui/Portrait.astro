@@ -1,0 +1,150 @@
+---
+// A team member's portrait on the brand's ink disc with a gold ring, inside the camera's
+// viewfinder marks. When a looping video of the member exists in public/team/ (made by
+// `npm run videos`), it plays muted in the disc while the portrait is on screen; the
+// photo shows meanwhile, and stays without video or with reduced motion.
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  photo: ImageMetadata;
+  alt: string;
+  /** Video name in public/team/ (without extension). */
+  video?: string;
+  /** Radius of the round cut-out inside the picture, as a fraction of its size: the
+   *  picture is scaled so that this circle lands exactly on the disc's edge. */
+  cutRadius?: number;
+  class?: string;
+}
+const { photo, alt, video, cutRadius = 0.5, class: className } = Astro.props;
+const fit = 0.5 / cutRadius;
+
+// Only reference videos that were actually encoded, so no request ever 404s.
+const has = (ext: string) => !!video && existsSync(path.join(process.cwd(), 'public/team', `${video}.${ext}`));
+const sources = [
+  has('webm') && { src: `/team/${video}.webm`, type: 'video/webm' },
+  has('mp4') && { src: `/team/${video}.mp4`, type: 'video/mp4' },
+].filter(Boolean) as { src: string; type: string }[];
+---
+
+<div class:list={['portrait viewfinder', className]} style={{ '--vf': 'var(--color-ink)', '--vf-inset': '0px', '--vf-size': '18px', '--fit': fit.toFixed(4) }}>
+  <div class="disc">
+    <Image src={photo} alt={alt} widths={[240, 400, 640]} sizes="(min-width: 1024px) 380px, 140px" class="shot" />
+    {
+      sources.length > 0 && (
+        <video class="shot clip" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1">
+          {sources.map((s) => (
+            <source src={s.src} type={s.type} />
+          ))}
+        </video>
+      )
+    }
+  </div>
+  <span class="rings" aria-hidden="true"></span>
+</div>
+
+<style>
+  /* Kept deliberately simple so every browser clips the same way (Safari leaks videos
+     out of rounded, transformed boxes): no 3D tilt, no transform on the picture — it is
+     enlarged by its box (--fit) and the disc is cut by a mask. The gold ring is drawn
+     over the picture. */
+  /* The disc and its ring are sized from the width only (width + aspect-ratio, no
+     percentage height): Safari resolves `height: 100%` inside an aspect-ratio box in a
+     flex column differently, which turned the disc into an oval. */
+  .portrait {
+    position: relative;
+    aspect-ratio: 1;
+  }
+  .disc,
+  .rings {
+    position: absolute;
+    top: 10%;
+    left: 10%;
+    width: 80%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+  .disc {
+    overflow: hidden;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 32%, #3a3a3a, #0d0d0d 68%);
+    -webkit-mask-image: radial-gradient(circle closest-side, #000 99.4%, transparent 100%);
+    mask-image: radial-gradient(circle closest-side, #000 99.4%, transparent 100%);
+  }
+  .rings {
+    z-index: 2;
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow:
+      inset 0 0 0 2px var(--color-gold),
+      0 0 0 5px var(--color-paper),
+      0 0 0 6px rgb(175 133 74 / 0.35);
+  }
+  .shot {
+    position: absolute;
+    top: calc(50% - var(--fit, 1) * 50%);
+    left: calc(50% - var(--fit, 1) * 50%);
+    width: calc(var(--fit, 1) * 100%);
+    height: calc(var(--fit, 1) * 100%);
+    max-width: none;
+    object-fit: cover;
+  }
+  /* The video lies over the photo and fades in once it actually plays. */
+  .clip {
+    opacity: 0;
+    transition: opacity 500ms ease;
+  }
+  .clip:global(.is-playing) {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clip {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Plays each portrait video only while it is on screen — and, in the pinned team
+  // stage, only for the member in focus.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clips = [...document.querySelectorAll<HTMLVideoElement>('.portrait video.clip')];
+  if (!still && clips.length) {
+    const visible = new Set<HTMLVideoElement>();
+    const sync = () => {
+      for (const v of clips) {
+        const hiddenCard = innerWidth >= 1024 && v.closest('[data-card]:not([data-active])');
+        if (visible.has(v) && !hiddenCard) {
+          if (v.preload !== 'auto') v.preload = 'auto';
+          v.play().catch(() => {});
+        } else if (!v.paused) v.pause();
+      }
+    };
+    clips.forEach((v) => v.addEventListener('playing', () => v.classList.add('is-playing'), { once: true }));
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting) visible.add(v);
+        else visible.delete(v);
+      }
+      sync();
+    });
+    clips.forEach((v) => io.observe(v));
+    // The team stage changes its member on scroll.
+    let ticking = false;
+    addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          ticking = false;
+          sync();
+        });
+      },
+      { passive: true },
+    );
+  }
+</script>

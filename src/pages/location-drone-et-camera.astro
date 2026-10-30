@@ -1,0 +1,38 @@
+---
+// /location-drone-et-camera/ — rental, rebuilt from the current page: search, the
+// categories and the ready-to-shoot packs (RentalHero), the full rental catalogue with
+// filters, and the bridge to the shop.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import RentalHero from '../components/shop/RentalHero.astro';
+import ProductGrid from '../components/shop/ProductGrid.astro';
+import ShopBridge from '../components/shop/ShopBridge.astro';
+import { RENTAL_FILTERS, forRent, productUrl } from '../data/catalog';
+import { ACTIVITIES, SITE } from '../data/site';
+
+// Title and description keep the intent of the current WordPress page.
+const title = 'Location drone et matériel audiovisuel à Lyon | Les Drones Lyonnais';
+const description =
+  'Louez drones, caméras, micros, éclairages et packs de tournage à Lyon. Consultez le matériel, les accessoires inclus et les conditions de location.';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Location Les Drones Lyonnais',
+  itemListElement: forRent.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: new URL(productUrl(p), SITE.url).href })),
+};
+---
+
+<BaseLayout title={title} description={description} headerOverlay>
+  <JsonLd slot="head" data={structuredData} />
+  <RentalHero />
+  <ProductGrid
+    id="catalogue"
+    title="Tout le matériel en location"
+    intro="Drones, caméras, objectifs, son, lumière et accessoires, à la journée. Les prix indiqués sont des tarifs de départ."
+    color={ACTIVITIES.location.color}
+    products={forRent}
+    filters={RENTAL_FILTERS}
+  />
+  <ShopBridge mode="location" />
+</BaseLayout>

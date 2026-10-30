@@ -1,0 +1,45 @@
+---
+// /boutique/ — the shop, rebuilt from the current page: search and the categories mega
+// menu (ShopHero), the full catalogue with filters, Pop's advice, then the bridge to
+// rental and expert help.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import ShopHero from '../components/shop/ShopHero.astro';
+import PopTip from '../components/ui/PopTip.astro';
+import ProductGrid from '../components/shop/ProductGrid.astro';
+import ShopBridge from '../components/shop/ShopBridge.astro';
+import { MENU_TILES, SHOP_FILTERS, forSale, productUrl } from '../data/catalog';
+import { SITE } from '../data/site';
+
+// Title and description keep the intent of the current WordPress page.
+const title = 'Drones et accessoires : achat et conseil à Lyon | Les Drones Lyonnais';
+const description =
+  'Choisissez votre drone et ses accessoires avec Les Drones Lyonnais. Comparez les modèles pour la vidéo, l’inspection et les missions professionnelles.';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Boutique Les Drones Lyonnais',
+  itemListElement: forSale.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: new URL(productUrl(p), SITE.url).href })),
+};
+---
+
+<BaseLayout title={title} description={description} headerOverlay>
+  <JsonLd slot="head" data={structuredData} />
+  <ShopHero />
+  <ProductGrid
+    id="catalogue"
+    title="Tout le catalogue"
+    intro="Drones, versions certifiées C5, capteurs, batteries et accessoires : filtrez pour trouver le bon équipement."
+    color="var(--color-ink)"
+    products={forSale}
+    filters={SHOP_FILTERS}
+    extraFilters={MENU_TILES}
+  />
+  <div class="wrap -mt-6 pb-16 md:pb-24">
+    <PopTip pose="pouce" title="Un doute sur la compatibilité ?" action={{ label: 'Demander à Pop', chat: 'Quel drone choisir ?' }} class="max-w-[620px]">
+      Batterie, filtres, radiocommande : dites-moi votre drone, je vous indique les accessoires qui vont avec, ou l’équipe vous répond.
+    </PopTip>
+  </div>
+  <ShopBridge mode="vente" />
+</BaseLayout>

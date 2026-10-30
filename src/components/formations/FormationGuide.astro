@@ -1,0 +1,174 @@
+---
+// Above the two catalogues: the three steps every path follows (Open → Spécifique →
+// spécialisation), in plain words, so each training card below reads as "step N".
+// Funding is said once here (the certifications are eligible for the CPF).
+import { Image } from 'astro:assets';
+import { LEVEL_GUIDE, type FormationLevel } from '../../data/formations';
+import bapd from '../../assets/pop/permis-bapd.webp';
+import cats from '../../assets/pop/permis-cats.webp';
+import formateur from '../../assets/pop/formateur.webp';
+
+const POP = { open: bapd, specifique: cats, specialisation: formateur };
+const levels = Object.entries(LEVEL_GUIDE) as [FormationLevel, (typeof LEVEL_GUIDE)[FormationLevel]][];
+---
+
+<section class="guide section-pad bg-paper" aria-labelledby="guide-title">
+  <div class="wrap">
+    <div class="head" data-reveal>
+      <p class="kicker hud-text">Comment ça marche</p>
+      <h2 id="guide-title" class="display text-[clamp(2rem,3.6vw,3rem)]">Par où commencer ?</h2>
+      <p class="lead">Technique ou artistique, chaque parcours suit les mêmes trois étapes. Commencez là où vous en êtes.</p>
+    </div>
+
+    <ol class="steps">
+      {
+        levels.map(([id, l], i) => (
+          <li class="step" data-reveal style={{ '--i': i + 1 }}>
+            <span class="num" aria-hidden="true">
+              {l.step}
+            </span>
+            <Image src={POP[id]} alt="" widths={[160, 240]} sizes="120px" class="pop" />
+            <p class="who">{l.forWho}</p>
+            <h3 class="name">
+              Étape {l.step} · {l.name} <span class="short">{l.short}</span>
+            </h3>
+            <p class="allows">{l.allows}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="cpf" data-reveal style={{ '--i': 4 }}>
+      <p>
+        <b>Étapes 1 et 2 finançables par le CPF.</b> Nos certifications RS6765 (technique) et RS6766 (artistique) sont reconnues par l’État.
+      </p>
+      <button type="button" class="ask" data-pop-open data-pop-ask="Financement CPF">Comment financer ? <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .kicker {
+    text-transform: uppercase;
+    color: var(--color-formations);
+  }
+  .head h2 {
+    margin-top: 10px;
+  }
+  .lead {
+    margin-top: 14px;
+    max-width: 52ch;
+    font-size: 1.1rem;
+    color: var(--color-ink-soft);
+  }
+  .steps {
+    display: grid;
+    gap: 16px;
+    margin-top: 44px;
+  }
+  @media (min-width: 900px) {
+    .steps {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+    }
+  }
+  .step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 24px 28px;
+    border: 1px solid var(--color-line);
+    border-top: 3px solid var(--color-formations);
+    background: #fff;
+  }
+  /* Arrow to the next step. */
+  @media (min-width: 900px) {
+    .step:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      top: 50%;
+      right: -30px;
+      translate: 0 -50%;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--color-formations);
+    }
+  }
+  .num {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    font-size: 4rem;
+    font-weight: 800;
+    font-stretch: 125%;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-formations) 45%, transparent);
+  }
+  /* Same box for every pose so the texts below line up. */
+  .step :global(.pop) {
+    width: 110px;
+    height: 120px;
+    object-fit: contain;
+    object-position: left bottom;
+  }
+  .who {
+    margin-top: 14px;
+    font-weight: 700;
+    color: var(--color-formations);
+  }
+  .name {
+    margin-top: 4px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .short {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    vertical-align: 0.15em;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .allows {
+    margin-top: 10px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+  .cpf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 24px;
+    margin-top: 24px;
+    padding: 18px 24px;
+    background: color-mix(in srgb, var(--color-formations) 10%, #fff);
+    border-left: 3px solid var(--color-formations);
+  }
+  .cpf p {
+    max-width: 70ch;
+    color: var(--color-ink-soft);
+  }
+  .cpf b {
+    color: var(--color-ink);
+  }
+  .ask {
+    padding: 10px 16px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--color-ink);
+    cursor: pointer;
+    transition: background-color 200ms ease;
+  }
+  .ask:hover {
+    background: var(--color-formations);
+  }
+  .ask:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+</style>

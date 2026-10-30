@@ -1,0 +1,11 @@
+---
+// The LDL square: the "point" of the monogram, coloured by activity.
+// It marks which activity a link or section belongs to.
+interface Props {
+  color: string;
+  class?: string;
+}
+const { color, class: className } = Astro.props;
+---
+
+<span aria-hidden="true" class:list={['inline-block size-[0.5em] shrink-0', className]} style={{ backgroundColor: color }}></span>

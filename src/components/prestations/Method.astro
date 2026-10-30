@@ -1,0 +1,599 @@
+---
+// The steps of a mission (or of a training), told as a drone flight.
+// Large screens: the section stays on screen while the page scrolls; a drone flies a
+// path through one waypoint per step, drawing a gold trail, and the step it reaches
+// lights up — dark card, Pop (illustrating the step) in colour and jumping, big number.
+// Small screens: the cards are stacked and light up as they cross the middle of the
+// screen. Without JavaScript or with reduced motion: every card is simply shown.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import SectionHeader from '../ui/SectionHeader.astro';
+import { METHOD, type MethodStep } from '../../data/services';
+
+interface Props {
+  title?: string;
+  intro?: string;
+  steps?: MethodStep[];
+  /** Word of the progress counter (« Mission · Étape 03 / 05 »). */
+  label?: string;
+}
+const {
+  title = 'Notre méthode, de la demande à la livraison',
+  intro = 'Chaque mission suit les mêmes cinq étapes, de l’analyse de votre besoin à la remise des livrables.',
+  steps = METHOD,
+  label = 'Mission',
+} = Astro.props;
+
+const poses = import.meta.glob<{ default: ImageMetadata }>('../../assets/pop/*.webp', { eager: true });
+const pose = (name: string) => poses[`../../assets/pop/${name}.webp`]!.default;
+const n = steps.length;
+const pad = (i: number) => String(i + 1).padStart(2, '0');
+
+// Flight path (viewBox 1000×140): a smooth curve through one waypoint above each card.
+const W = 1000;
+const points = [
+  [0, 90],
+  ...steps.map((_, i) => [((i + 0.5) / n) * W, i % 2 ? 96 : 44]),
+  [W, 70],
+];
+const path = points
+  .map(([x, y], i) => {
+    if (i === 0) return `M${x} ${y}`;
+    // Catmull-Rom to Bézier.
+    const [x0, y0] = points[i - 2] ?? points[i - 1];
+    const [x1, y1] = points[i - 1];
+    const [x3, y3] = points[i + 1] ?? [x, y];
+    return `C${x1 + (x - x0) / 6} ${y1 + (y - y0) / 6} ${x - (x3 - x1) / 6} ${y - (y3 - y1) / 6} ${x} ${y}`;
+  })
+  .join('');
+const waypoints = points.slice(1, -1);
+---
+
+<section id="methode" aria-labelledby="method-title" class="method scroll-mt-16 bg-paper" style={{ '--n': n }} data-method>
+  <div class="stage">
+    <div class="wrap inner">
+      <div class="top">
+        <SectionHeader id="method-title" title={title}>
+          <p class="max-w-[44ch]">{intro}</p>
+        </SectionHeader>
+        <p class="mission hud-text" aria-hidden="true">
+          <span class="mission-dot"></span>
+          {label} · Étape <b data-current>01</b> / {pad(n - 1)}
+          <span class="mission-bar"><span data-bar></span></span>
+        </p>
+      </div>
+
+      <!-- The flight: path, trail, waypoints and the drone. -->
+      <div class="flight" aria-hidden="true">
+        <svg viewBox={`0 0 ${W} 140`} preserveAspectRatio="none">
+          <path d={path} class="route" />
+          <path d={path} class="trail" data-trail />
+        </svg>
+        {
+          waypoints.map(([x, y], i) => (
+            <span class="waypoint" style={{ left: `${(x / W) * 100}%`, top: `${(y / 140) * 100}%`, '--i': i }}>
+              <span class="wp-label hud-text">WP {pad(i)}</span>
+            </span>
+          ))
+        }
+        <span class="drone" data-drone>
+          <svg viewBox="0 0 64 64">
+            <g class="arms">
+              <path d="M14 14 50 50M50 14 14 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            </g>
+            <rect x="22" y="22" width="20" height="20" rx="6" fill="currentColor" />
+            <circle cx="32" cy="32" r="4" fill="var(--color-gold)" />
+            {
+              [
+                [14, 14],
+                [50, 14],
+                [14, 50],
+                [50, 50],
+              ].map(([cx, cy]) => (
+                <g class="rotor" style={{ transformOrigin: `${cx}px ${cy}px` }}>
+                  <circle cx={cx} cy={cy} r="11" fill="currentColor" opacity="0.12" />
+                  <path d={`M${cx - 10} ${cy}h20`} stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                </g>
+              ))
+            }
+          </svg>
+        </span>
+      </div>
+
+      <ol class="steps">
+        {
+          steps.map((step, i) => (
+            <li class="step" data-step={i} style={{ '--i': i }}>
+              <span class="pop">
+                <Image src={pose(step.pose)} alt="" widths={[180, 270, 360]} sizes="(min-width: 1024px) 160px, 140px" loading="lazy" />
+              </span>
+              <span class="num" aria-hidden="true">
+                {pad(i)}
+              </span>
+              <span class="step-kicker hud-text">Étape {pad(i)}</span>
+              <h3 class="step-title">{step.title}</h3>
+              <p class="step-text">{step.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<style>
+  .method {
+    position: relative;
+    --pad: clamp(80px, 10vw, 128px);
+    padding-block: var(--pad);
+  }
+
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .top > :first-child {
+    flex: 1 1 640px;
+  }
+  .mission {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+  }
+  .mission b {
+    font-weight: 700;
+  }
+  .mission-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e5352b;
+    animation: blink 1.4s steps(1) infinite;
+  }
+  .mission-bar {
+    position: relative;
+    width: 80px;
+    height: 2px;
+    background: var(--color-line);
+  }
+  .mission-bar span {
+    position: absolute;
+    inset: 0;
+    background: var(--color-gold);
+    transform-origin: left;
+    transform: scaleX(var(--p, 1));
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.2;
+    }
+  }
+
+  /* ---------- Flight ---------- */
+  .flight {
+    position: relative;
+    height: clamp(90px, 11vw, 140px);
+    margin-top: clamp(28px, 4vw, 48px);
+  }
+  .flight svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .route,
+  .trail {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+  .route {
+    stroke: var(--color-line);
+    stroke-width: 2;
+    stroke-dasharray: 2 8;
+    stroke-linecap: round;
+  }
+  .trail {
+    stroke: var(--color-gold);
+    stroke-width: 2.5;
+  }
+  .waypoint {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    translate: -50% -50%;
+    background: var(--color-paper);
+    border: 2px solid var(--color-gold);
+    transform: rotate(45deg);
+    transition:
+      background-color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .waypoint.is-passed {
+    background: var(--color-gold);
+  }
+  .waypoint.is-current {
+    background: var(--color-gold);
+    box-shadow: 0 0 0 6px rgb(175 133 74 / 0.2);
+  }
+  .wp-label {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    transform: rotate(-45deg) translateX(-50%);
+    transform-origin: left bottom;
+    white-space: nowrap;
+    color: var(--color-muted);
+  }
+  /* The drone sits at the end of the trail (placed by the script). */
+  .drone {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 54px;
+    height: 54px;
+    margin: -27px 0 0 -27px;
+    color: var(--color-ink);
+    filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.25));
+    will-change: transform;
+    display: none;
+  }
+  .rotor {
+    animation: spin 0.25s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ---------- Steps ---------- */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(var(--n), 1fr);
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0 22px 26px;
+    overflow: hidden;
+    background: var(--color-mist);
+    transition:
+      background-color 500ms ease,
+      color 500ms ease,
+      transform 600ms var(--ease-out-strong),
+      box-shadow 600ms ease;
+  }
+  .pop {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: clamp(130px, 13vw, 170px);
+    margin: 0 -22px 14px;
+    background: radial-gradient(ellipse 60% 70% at 50% 100%, rgb(175 133 74 / 0.18), transparent 70%);
+  }
+  .pop img {
+    width: auto;
+    height: 92%;
+    object-fit: contain;
+    transform-origin: 50% 100%;
+    transition:
+      filter 500ms ease,
+      opacity 500ms ease;
+  }
+  /* Big outlined number, as a watermark in the bottom corner. */
+  .num {
+    position: absolute;
+    right: 12px;
+    bottom: 6px;
+    z-index: 0;
+    font-size: clamp(2.6rem, 4vw, 3.6rem);
+    font-weight: 800;
+    font-stretch: 125%;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgb(0 0 0 / 0.15);
+    transition: -webkit-text-stroke-color 500ms ease;
+  }
+  .step-kicker,
+  .step-title,
+  .step-text {
+    position: relative;
+    z-index: 1;
+  }
+  .step-kicker {
+    color: var(--color-gold-deep);
+  }
+  .step-title {
+    margin-top: 6px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.2;
+  }
+  .step-text {
+    margin-top: 8px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+    transition: color 500ms ease;
+  }
+
+  /* While the flight runs (script on), steps not reached yet wait in the background. */
+  .method.is-live .step:not(.is-current) .pop img {
+    filter: grayscale(1);
+    opacity: 0.55;
+  }
+  .method.is-live .step.is-current {
+    color: #fff;
+    background: var(--color-ink);
+    transform: translateY(-10px);
+    box-shadow: 0 24px 40px -20px rgb(0 0 0 / 0.5);
+  }
+  .method.is-live .step.is-current .step-text {
+    color: rgb(255 255 255 / 0.75);
+  }
+  .method.is-live .step.is-current .step-kicker {
+    color: var(--color-gold);
+  }
+  .method.is-live .step.is-current .num {
+    -webkit-text-stroke-color: rgb(175 133 74 / 0.6);
+  }
+  .method.is-live .step.is-current .pop img {
+    animation: hop 700ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes hop {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    35% {
+      transform: translateY(-14px) scale(1.04, 0.97);
+    }
+    70% {
+      transform: translateY(0) scale(0.97, 1.03);
+    }
+    100% {
+      transform: none;
+    }
+  }
+
+  /* ---------- Large screens: the flight ---------- */
+  @media (min-width: 1024px) {
+    .method.is-live .drone {
+      display: block;
+    }
+  }
+  /* Pinned (set by the script, only when everything fits in the screen): the section
+     stays on screen while the page scrolls through its room, in a compact layout. */
+  .method.is-pinned {
+    /* Scroll room: one screen, then a share of a screen per step. */
+    height: calc(100svh + var(--n) * 45svh);
+    padding-block: 0;
+  }
+  .method.is-pinned .stage {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    height: 100svh;
+    padding-top: 72px;
+  }
+  .method.is-pinned :global(h2) {
+    font-size: clamp(1.8rem, min(3vw, 4.6vh), 2.8rem);
+  }
+  .method.is-pinned .flight {
+    height: clamp(64px, 11vh, 120px);
+    margin-top: clamp(10px, 2.5vh, 36px);
+  }
+  .method.is-pinned .steps {
+    margin-top: clamp(6px, 1.5vh, 18px);
+  }
+  .method.is-pinned .pop {
+    height: clamp(84px, 15vh, 160px);
+    margin-bottom: clamp(6px, 1.2vh, 14px);
+  }
+  .method.is-pinned .step {
+    padding-bottom: clamp(14px, 2.4vh, 26px);
+  }
+
+  /* ---------- Small screens: stacked, a vertical line ---------- */
+  @media (max-width: 1023px) {
+    .flight,
+    .mission {
+      display: none;
+    }
+    .steps {
+      position: relative;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 40px;
+      padding-left: 28px;
+    }
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 6px;
+      width: 2px;
+      background: repeating-linear-gradient(var(--color-line) 0 4px, transparent 4px 10px);
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      grid-template-rows: auto auto 1fr;
+      column-gap: 18px;
+      padding: 16px 18px 16px 0;
+      overflow: visible;
+    }
+    .step::before {
+      content: '';
+      position: absolute;
+      top: 28px;
+      left: -28px;
+      width: 12px;
+      height: 12px;
+      translate: 1px 0;
+      background: var(--color-paper);
+      border: 2px solid var(--color-gold);
+      transform: rotate(45deg);
+    }
+    .step.is-current::before,
+    .step.is-passed::before {
+      background: var(--color-gold);
+    }
+    .pop {
+      grid-row: 1 / -1;
+      height: 120px;
+      margin: 0;
+      align-self: center;
+    }
+    .num {
+      top: 10px;
+      bottom: auto;
+      font-size: 2.2rem;
+    }
+    .method.is-live .step.is-current {
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rotor,
+    .mission-dot {
+      animation: none;
+    }
+    .step,
+    .pop img {
+      transition: none;
+    }
+    .method.is-live .step.is-current .pop img {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  // Drives the flight from the scroll position: drone along the path, gold trail,
+  // current waypoint and card, mission counter. Plain scroll + requestAnimationFrame.
+  document.querySelectorAll<HTMLElement>('[data-method]').forEach((section) => {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const wide = matchMedia('(min-width: 1024px)');
+    const steps = [...section.querySelectorAll<HTMLElement>('.step')];
+    const wps = [...section.querySelectorAll<HTMLElement>('.waypoint')];
+    const trail = section.querySelector<SVGPathElement>('[data-trail]')!;
+    const svg = trail.ownerSVGElement!;
+    const drone = section.querySelector<HTMLElement>('[data-drone]')!;
+    const counter = section.querySelector<HTMLElement>('[data-current]')!;
+    const bar = section.querySelector<HTMLElement>('[data-bar]')!;
+    const n = steps.length;
+    const total = trail.getTotalLength();
+
+    // Length along the path at each waypoint (sampled once).
+    const at: number[] = [];
+    {
+      const vb = svg.viewBox.baseVal;
+      const targets = wps.map((w) => (parseFloat(w.style.left) / 100) * vb.width);
+      let k = 0;
+      for (let l = 0; l <= total && k < targets.length; l += 1) {
+        if (trail.getPointAtLength(l).x >= targets[k]) at[k++] = l;
+      }
+      while (at.length < n) at.push(total);
+    }
+
+    let current = -1;
+    const setCurrent = (i: number) => {
+      if (i === current) return;
+      current = i;
+      steps.forEach((s, k) => {
+        s.classList.toggle('is-current', k === i);
+        s.classList.toggle('is-passed', k < i);
+      });
+      wps.forEach((w, k) => {
+        w.classList.toggle('is-current', k === i);
+        w.classList.toggle('is-passed', k < i);
+      });
+      counter.textContent = String(i + 1).padStart(2, '0');
+    };
+
+    if (still) return; // every card shown as it is
+    section.classList.add('is-live');
+    trail.style.strokeDasharray = `${total}`;
+
+    // Pin only on large screens, and only if the whole stage fits in the screen
+    // (header bar included); otherwise the section scrolls normally.
+    const inner = section.querySelector<HTMLElement>('.inner')!;
+    let pinned = false;
+    const layout = () => {
+      section.classList.add('is-pinned');
+      pinned = wide.matches && inner.offsetHeight <= innerHeight - 72 - 24;
+      section.classList.toggle('is-pinned', pinned);
+    };
+    layout();
+
+    let shown = 0; // eased position, in steps (0 … n-1)
+    let raf = 0;
+    const frame = () => {
+      raf = 0;
+      let target: number;
+      if (pinned) {
+        // Progress through the pinned scroll room.
+        const r = section.getBoundingClientRect();
+        const room = section.offsetHeight - innerHeight;
+        const p = Math.min(1, Math.max(0, -r.top / Math.max(1, room)));
+        target = p * (n - 1);
+      } else if (wide.matches) {
+        // Not pinned: the flight follows the cards' way up through the screen.
+        const r = section.querySelector('.steps')!.getBoundingClientRect();
+        const p = Math.min(1, Math.max(0, (innerHeight * 0.95 - r.bottom) / (innerHeight * 0.55)));
+        target = p * (n - 1);
+      } else {
+        // Stacked: the card crossing the middle of the screen.
+        const mid = innerHeight * 0.55;
+        target = 0;
+        steps.forEach((s, k) => {
+          if (s.getBoundingClientRect().top < mid) target = k;
+        });
+      }
+      shown += (target - shown) * 0.18;
+      if (Math.abs(target - shown) < 0.001) shown = target;
+      setCurrent(Math.round(shown));
+      bar.parentElement!.style.setProperty('--p', String(shown / (n - 1)));
+
+      if (wide.matches) {
+        // Length along the path for a fractional step.
+        const i = Math.min(n - 2, Math.floor(shown));
+        const f = shown - i;
+        const len = at[i] + (at[i + 1] - at[i]) * f;
+        trail.style.strokeDashoffset = `${total - len}`;
+        const pt = trail.getPointAtLength(len);
+        const ahead = trail.getPointAtLength(Math.min(total, len + 4));
+        const box = svg.getBoundingClientRect();
+        const sx = box.width / svg.viewBox.baseVal.width;
+        const sy = box.height / svg.viewBox.baseVal.height;
+        const angle = Math.atan2((ahead.y - pt.y) * sy, (ahead.x - pt.x) * sx);
+        // Banks into the turns, nose along the path.
+        drone.style.transform = `translate(${(pt.x * sx).toFixed(1)}px, ${(pt.y * sy).toFixed(1)}px) rotate(${(angle * 57.3 + 90).toFixed(1)}deg)`;
+      }
+      if (shown !== target) raf = requestAnimationFrame(frame);
+    };
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+    addEventListener('scroll', kick, { passive: true });
+    addEventListener('resize', () => {
+      layout();
+      kick();
+    });
+    kick();
+  });
+</script>

@@ -1,0 +1,75 @@
+---
+// First thing under the hero: one sentence that lights up word by word as it scrolls
+// through the screen, then the essentials — what we do, figures, how to reach us.
+import Button from '../ui/Button.astro';
+import { MANIFESTO, HERO, FACTS } from '../../data/home';
+import { CLIENTS } from '../../data/clients';
+import { SITE } from '../../data/site';
+
+const words = MANIFESTO.split(' ');
+const facts = [...FACTS, { value: String(CLIENTS.length), label: 'clients, d’EDF à TF1' }];
+---
+
+<section aria-labelledby="manifesto-title" class="manifesto-section relative bg-ink pt-16 pb-20 text-white md:pt-24 md:pb-28">
+  <div class="wrap">
+    <h2 id="manifesto-title" class="sr-only">Les Drones Lyonnais en bref</h2>
+    <p class="manifesto display max-w-[30ch] text-[clamp(1.6rem,3.3vw,2.85rem)] leading-[1.12]!">
+      {
+        words.map((word, i) => (
+          <>
+            <span class="w" style={{ '--p': (i / words.length).toFixed(3) }}>
+              {word}
+            </span>{' '}
+          </>
+        ))
+      }
+    </p>
+
+    <div class="mt-16 grid gap-10 border-t border-white/15 pt-10 md:mt-24 lg:grid-cols-12">
+      <div class="flex flex-col items-start gap-7 lg:col-span-5" data-reveal>
+        <p class="max-w-[44ch] text-lg leading-relaxed text-white/75">{HERO.intro}</p>
+        <div class="flex flex-wrap gap-3">
+          <Button href={SITE.contactPath} variant="gold">Demander un devis</Button>
+          <Button href={SITE.phoneHref} variant="outline-light">{SITE.phone}</Button>
+        </div>
+      </div>
+      <dl class="flex flex-wrap gap-x-10 gap-y-6 lg:col-span-6 lg:col-start-7 lg:justify-between">
+        {
+          facts.map((fact, i) => (
+            <div class="flex flex-col-reverse gap-2" data-reveal style={{ '--i': i + 1 }}>
+              <dt class="text-sm leading-snug text-white/60">{fact.label}</dt>
+              <dd class="text-[clamp(1.8rem,3.4vw,3rem)] leading-none font-bold [font-stretch:125%]">{fact.value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Each word goes from faint to ink at its own point of the section's journey
+     through the viewport (--p = its position in the sentence). */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .manifesto {
+        view-timeline: --manifesto block;
+      }
+      .w {
+        animation-name: lit;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: --manifesto;
+        animation-range: cover calc(18% + var(--p) * 34%) cover calc(24% + var(--p) * 34%);
+      }
+    }
+  }
+  @keyframes lit {
+    from {
+      opacity: 0.14;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+</style>

@@ -1,0 +1,197 @@
+---
+// Pop, the team's samoyed and the site's mascot, giving a tip in a speech bubble.
+// Poses are in src/assets/pop/. He pops up when the tip scrolls into view; the action
+// button can open his chat (data-pop-open) or follow a link.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+const poses = import.meta.glob<{ default: ImageMetadata }>('../../assets/pop/*.webp', { eager: true });
+
+export type PopPose =
+  | 'assis'
+  | 'chantier'
+  | 'conseil'
+  | 'coucou'
+  | 'debout'
+  | 'drone'
+  | 'formateur'
+  | 'high-five'
+  | 'livraison'
+  | 'loupe'
+  | 'manuel'
+  | 'paiement'
+  | 'paiement-accepte'
+  | 'permis-a1-a3'
+  | 'permis-bapd'
+  | 'permis-cats'
+  | 'pilote'
+  | 'pouce'
+  | 'support';
+
+interface Props {
+  pose: PopPose;
+  title?: string;
+  /** Button: a link, or `chat` to open Pop's chat with a question already asked. */
+  action?: { label: string; href?: string; chat?: string };
+  dark?: boolean;
+  /** Pop on the right instead of the left. */
+  flip?: boolean;
+  class?: string;
+}
+const { pose, title, action, dark = false, flip = false, class: className } = Astro.props;
+const img = poses[`../../assets/pop/${pose}.webp`]?.default;
+---
+
+<aside class:list={['pop-tip', dark && 'is-dark', flip && 'is-flip', className]} data-reveal aria-label="Le conseil de Pop">
+  {img && <Image src={img} alt="Pop, la mascotte des Drones Lyonnais" width={180} densities={[1, 2]} class="pop" />}
+  <div class="bubble">
+    <p class="who hud-text">Pop, mascotte officielle</p>
+    {title && <p class="title">{title}</p>}
+    <div class="text"><slot /></div>
+    {
+      action &&
+        (action.chat ? (
+          <button type="button" class="act" data-pop-open data-pop-ask={action.chat}>
+            {action.label}
+          </button>
+        ) : (
+          <a class="act" href={action.href}>
+            {action.label}
+          </a>
+        ))
+    }
+  </div>
+</aside>
+
+<style>
+  .pop-tip {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .is-flip {
+    flex-direction: row-reverse;
+  }
+  .pop {
+    flex-shrink: 0;
+    width: clamp(92px, 11vw, 140px);
+    height: auto;
+    filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.18));
+    transform-origin: 50% 100%;
+  }
+  .bubble {
+    position: relative;
+    flex: 1;
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    border: 1px solid var(--color-line);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    box-shadow: 0 18px 40px -26px rgb(0 0 0 / 0.5);
+  }
+  /* Speech tail towards Pop. */
+  .bubble::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    bottom: 18px;
+    width: 14px;
+    height: 14px;
+    background: inherit;
+    border-left: 1px solid var(--color-line);
+    border-bottom: 1px solid var(--color-line);
+    transform: rotate(45deg);
+  }
+  .is-flip .bubble::before {
+    left: auto;
+    right: -8px;
+    transform: rotate(-135deg);
+  }
+  .is-dark .bubble {
+    border-color: rgb(255 255 255 / 0.14);
+    background: #151515;
+    color: #fff;
+  }
+  .is-dark .bubble::before {
+    border-color: rgb(255 255 255 / 0.14);
+  }
+  .who {
+    color: var(--color-gold-deep);
+  }
+  .is-dark .who {
+    color: var(--color-gold);
+  }
+  .title {
+    margin-top: 4px;
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .text {
+    margin-top: 4px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--color-ink-soft);
+  }
+  .is-dark .text {
+    color: rgb(255 255 255 / 0.75);
+  }
+  .text :global(a) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .act {
+    display: inline-flex;
+    margin-top: 10px;
+    font-weight: 700;
+    color: var(--color-gold-deep);
+    background: linear-gradient(currentColor, currentColor) no-repeat left bottom / 0 1.5px;
+    transition: background-size 300ms var(--ease-out-strong);
+  }
+  .is-dark .act {
+    color: var(--color-gold);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .act:hover {
+      background-size: 100% 1.5px;
+    }
+  }
+
+  /* He pops up, then the bubble follows. */
+  :global(.js) .pop-tip:global([data-reveal]) {
+    opacity: 1;
+    transform: none;
+  }
+  :global(.js) .pop-tip:global([data-reveal]:not(.is-in)) .pop {
+    transform: translateY(30px) scale(0.85);
+    opacity: 0;
+  }
+  :global(.js) .pop-tip:global([data-reveal]:not(.is-in)) .bubble {
+    transform: translateY(10px) scale(0.96);
+    opacity: 0;
+  }
+  .pop {
+    transition:
+      transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 300ms ease;
+  }
+  .bubble {
+    transition:
+      transform 500ms var(--ease-out-strong) 250ms,
+      opacity 300ms ease 250ms;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .pop-tip:hover .pop {
+      transform: rotate(-4deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pop,
+    .bubble {
+      transition: opacity 200ms ease;
+    }
+    :global(.js) .pop-tip:global([data-reveal]:not(.is-in)) .pop,
+    :global(.js) .pop-tip:global([data-reveal]:not(.is-in)) .bubble {
+      transform: none;
+    }
+  }
+</style>

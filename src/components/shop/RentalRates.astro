@@ -1,0 +1,333 @@
+---
+// Rental pages: the daily rate goes down with the length of the rental (RENTAL_TIERS).
+// Left, a duration slider gives the daily rate, the total and the saving; right, a bar
+// chart of the daily rate per tier (one series: one hue, values labelled on the bars,
+// the tier of the chosen duration highlighted). "Réserver" fills the booking dates.
+// Without JavaScript the chart and a full table are shown.
+import { RENTAL_TIERS, dailyRate, formatPrice } from '../../data/catalog';
+
+interface Props {
+  base: number;
+}
+const { base } = Astro.props;
+const tiers = RENTAL_TIERS.map((t) => ({ ...t, rate: dailyRate(base, t.from) }));
+const max = tiers[0].rate;
+const best = Math.round(tiers[tiers.length - 1].discount * 100);
+---
+
+<section id="tarifs" class="rates section-pad scroll-mt-20 border-t border-line" aria-labelledby="rates-title" data-rates data-base={base} data-tiers={JSON.stringify(RENTAL_TIERS.map((t) => [t.from, t.to === Infinity ? 999 : t.to, t.discount]))}>
+  <div class="wrap">
+    <div class="head" data-reveal>
+      <p class="kicker hud-text">Tarifs dégressifs</p>
+      <h2 id="rates-title" class="display text-[clamp(2rem,3.6vw,3rem)]">Plus vous louez, moins la journée coûte</h2>
+      <p class="lead">Jusqu’à <b>−{best} %</b> sur le prix à la journée dès 8 jours de location.</p>
+    </div>
+
+    <div class="grid">
+      <!-- Simulator -->
+      <div class="sim" data-reveal style={{ '--i': 1 }}>
+        <label class="sim-label" for="rate-days">
+          Durée de location : <b><span data-days-out>3</span> jours</b>
+        </label>
+        <input id="rate-days" type="range" min="1" max="14" step="1" value="3" data-rate-days />
+        <div class="ticks hud-text" aria-hidden="true"><span>1</span><span>7</span><span>14 j</span></div>
+
+        <dl class="figures">
+          <div>
+            <dt class="hud-text">Prix par jour</dt>
+            <dd data-rate>{formatPrice(dailyRate(base, 3))}</dd>
+          </div>
+          <div>
+            <dt class="hud-text">Total TTC</dt>
+            <dd data-total>{formatPrice(Math.round(dailyRate(base, 3) * 3 * 100) / 100)}</dd>
+          </div>
+        </dl>
+        <p class="saving" data-saving aria-live="polite">
+          Vous économisez {formatPrice(Math.round((base - dailyRate(base, 3)) * 3 * 100) / 100)} par rapport au tarif 1 jour.
+        </p>
+        <a href="#reservation" class="book" data-book>Réserver&nbsp;<span data-days-out>3</span><span data-days-word> jours</span></a>
+      </div>
+
+      <!-- Chart: daily rate per tier -->
+      <figure class="chart" data-reveal style={{ '--i': 2 }}>
+        <figcaption class="hud-text">Prix par jour TTC, selon la durée</figcaption>
+        <ul class="bars" role="list">
+          {
+            tiers.map((t, i) => (
+              <li class="bar" data-tier={i} style={{ '--h': (t.rate / max).toFixed(3), '--k': i }}>
+                <span class="bar-value">{formatPrice(t.rate)}</span>
+                <span class="bar-col">{t.discount > 0 && <span class="bar-off hud-text">−{Math.round(t.discount * 100)} %</span>}</span>
+                <span class="bar-label hud-text">{t.label}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="fine">Tarifs indicatifs, hors caution. Le devis final vous est confirmé par l’équipe.</p>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<style>
+  .rates {
+    background: var(--color-paper);
+  }
+  .kicker {
+    color: var(--color-location);
+    text-transform: uppercase;
+  }
+  .head h2 {
+    margin-top: 10px;
+  }
+  .lead {
+    margin-top: 14px;
+    font-size: 1.1rem;
+    color: var(--color-ink-soft);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+  }
+  .grid > * {
+    min-width: 0;
+  }
+  @media (min-width: 1024px) {
+    .grid {
+      grid-template-columns: 5fr 7fr;
+    }
+  }
+
+  /* ---------- Simulator ---------- */
+  .sim {
+    display: flex;
+    flex-direction: column;
+    padding: 28px;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .sim-label {
+    font-size: 1.05rem;
+  }
+  .sim-label b {
+    color: #ffb27a;
+  }
+  input[type='range'] {
+    width: 100%;
+    margin-top: 18px;
+    accent-color: var(--color-location);
+    cursor: pointer;
+  }
+  .ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    color: rgb(255 255 255 / 0.5);
+  }
+  .figures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .figures div {
+    padding: 14px 16px;
+    background: rgb(255 255 255 / 0.06);
+  }
+  .figures dt {
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .figures dd {
+    margin-top: 4px;
+    font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+    font-weight: 800;
+    font-stretch: 118%;
+    font-variant-numeric: tabular-nums;
+  }
+  .saving {
+    margin-top: 14px;
+    min-height: 1.5em;
+    color: #ffb27a;
+    font-weight: 600;
+  }
+  .book {
+    margin-top: auto;
+    padding-top: 0;
+    align-self: flex-start;
+    display: inline-flex;
+    padding: 12px 18px;
+    margin-top: 20px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--color-location);
+    transition: filter 200ms ease;
+  }
+  .book:hover {
+    filter: brightness(1.1);
+  }
+  .book:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+
+  /* ---------- Chart ---------- */
+  .chart {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 24px 24px 18px;
+    border: 1px solid var(--color-line);
+  }
+  .chart figcaption {
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .bars {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    align-items: end;
+    height: 260px;
+    margin-top: 18px;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    gap: 6px;
+  }
+  .bar-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-col {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: min(72%, 64px);
+    height: calc(var(--h) * 78%);
+    border-radius: 4px 4px 0 0;
+    background: color-mix(in srgb, var(--color-location) 35%, white);
+    transform-origin: bottom;
+    transition: background-color 250ms ease;
+  }
+  .bar-off {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--color-ink);
+  }
+  .bar-label {
+    position: relative;
+    top: calc(100% + 0px);
+    height: 0;
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+  .bar.is-on .bar-col {
+    background: var(--color-location);
+  }
+  .bar.is-on .bar-off {
+    color: #fff;
+  }
+  .bar.is-on .bar-label {
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+  .bar {
+    cursor: pointer;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .bar:hover .bar-col {
+      background: color-mix(in srgb, var(--color-location) 60%, white);
+    }
+    .bar.is-on:hover .bar-col {
+      background: var(--color-location);
+    }
+  }
+  .fine {
+    margin-top: 34px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .chart[data-reveal] .bar-col {
+      transform: scaleY(0);
+      transition:
+        transform 900ms var(--ease-out-strong),
+        background-color 250ms ease;
+      transition-delay: calc(250ms + var(--k) * 90ms), 0ms;
+    }
+    :global(.js) .chart[data-reveal].is-in .bar-col {
+      transform: none;
+    }
+  }
+  @media (max-width: 640px) {
+    .bars {
+      height: 220px;
+    }
+    .bar-value {
+      font-size: 12px;
+    }
+    .bar-label {
+      font-size: 10.5px;
+      white-space: normal;
+      text-align: center;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-rates]').forEach((box) => {
+    const base = Number(box.dataset.base);
+    const tiers: [number, number, number][] = JSON.parse(box.dataset.tiers!);
+    const range = box.querySelector<HTMLInputElement>('[data-rate-days]')!;
+    const bars = [...box.querySelectorAll<HTMLElement>('[data-tier]')];
+    const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: Number.isInteger(n) ? 0 : 2, minimumFractionDigits: Number.isInteger(n) ? 0 : 2 }).format(n).replace(/ /g, ' ');
+    const tierOf = (d: number) => Math.max(0, tiers.findIndex(([from, to]) => d >= from && d <= to));
+    const firstDays = [1, 2, 3, 5, 8];
+    const $ = (s: string) => box.querySelector<HTMLElement>(s)!;
+
+    const update = () => {
+      const d = Number(range.value);
+      const ti = tierOf(d);
+      const rate = Math.round(base * (1 - tiers[ti][2]) * 100) / 100;
+      const total = Math.round(rate * d * 100) / 100;
+      const saved = Math.round((base - rate) * d * 100) / 100;
+      box.querySelectorAll('[data-days-out]').forEach((el) => (el.textContent = String(d)));
+      $('[data-rate]').textContent = fmt(rate);
+      $('[data-total]').textContent = fmt(total);
+      $('[data-saving]').textContent = saved > 0 ? `Vous économisez ${fmt(saved)} par rapport au tarif 1 jour.` : 'Tarif à la journée, sans réduction.';
+      $('[data-days-word]').textContent = d > 1 ? '\u00a0jours' : '\u00a0jour';
+      bars.forEach((b, i) => b.classList.toggle('is-on', i === ti));
+    };
+    range.addEventListener('input', update);
+    bars.forEach((b, i) =>
+      b.addEventListener('click', () => {
+        range.value = String(firstDays[i]);
+        update();
+      }),
+    );
+
+    // "Réserver" fills the booking form (from tomorrow) and scrolls to it.
+    $('[data-book]').addEventListener('click', () => {
+      const form = document.querySelector<HTMLFormElement>('[data-booking]');
+      if (!form) return;
+      const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+      const start = new Date(Date.now() + 86400000);
+      const end = new Date(start);
+      end.setDate(end.getDate() + Number(range.value) - 1);
+      (form.elements.namedItem('du') as HTMLInputElement).value = iso(start);
+      const to = form.elements.namedItem('au') as HTMLInputElement;
+      to.value = iso(end);
+      to.dispatchEvent(new Event('change'));
+    });
+    update();
+  });
+</script>

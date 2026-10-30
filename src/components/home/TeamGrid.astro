@@ -1,0 +1,95 @@
+---
+// The team at a glance: the four members side by side, each with their living portrait.
+import Portrait from '../ui/Portrait.astro';
+import SectionHeader from '../ui/SectionHeader.astro';
+import { TEAM, TEAM_INTRO } from '../../data/home';
+---
+
+<section aria-labelledby="team-grid-title" class="team-grid section-pad border-t border-line bg-paper">
+  <div class="wrap">
+    <SectionHeader id="team-grid-title" title={TEAM_INTRO.title}>
+      <p class="max-w-[42ch]">{TEAM_INTRO.text}</p>
+    </SectionHeader>
+
+    <ul class="mt-14 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:mt-20 lg:grid-cols-4">
+      {
+        TEAM.map((member, i) => (
+          <li class="member" data-reveal style={{ '--i': i }}>
+            <Portrait photo={member.photo} video={member.video} cutRadius={member.cutRadius} alt={`${member.name}, ${member.role.toLowerCase()}`} class="photo" />
+            <h3 class="name">{member.name}</h3>
+            <p class="role">{member.role}</p>
+            <p class="bio">{member.bio}</p>
+            <ul class="skills" aria-label="Spécialités">
+              {member.skills.map((skill) => (
+                <li>{skill}</li>
+              ))}
+            </ul>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .member {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .member :global(.photo) {
+    width: min(100%, 280px);
+    transition: transform 500ms var(--ease-out-strong);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .member:hover :global(.photo) {
+      transform: translateY(-6px);
+    }
+  }
+  .name {
+    margin-top: 12px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-stretch: 118%;
+    letter-spacing: -0.01em;
+  }
+  .role {
+    margin-top: 2px;
+    font-weight: 600;
+    color: var(--color-gold-deep);
+  }
+  .bio {
+    margin-top: 12px;
+    max-width: 34ch;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+  .skills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 14px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-line);
+    font-size: 13px;
+    font-stretch: 75%;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+  }
+  .skills li::before {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-right: 7px;
+    vertical-align: middle;
+    background: var(--color-gold);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .member :global(.photo) {
+      transition: none;
+    }
+  }
+</style>

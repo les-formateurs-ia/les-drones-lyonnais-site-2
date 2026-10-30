@@ -1,0 +1,70 @@
+---
+import '../styles/global.css';
+import SEOHead from '../components/seo/SEOHead.astro';
+import Header from '../components/layout/Header.astro';
+import Footer from '../components/layout/Footer.astro';
+import PopChat, { type PopContext } from '../components/layout/PopChat.astro';
+import CartDrawer from '../components/shop/CartDrawer.astro';
+import type { ActivityId } from '../data/site';
+
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+  noindex?: boolean;
+  /** Transparent header over a full-screen hero. */
+  headerOverlay?: boolean;
+  /** Hide the header menu while over the hero. */
+  headerCompact?: boolean;
+  /** Pop's chat context (defaults from the URL). */
+  pop?: PopContext;
+  /** Homepage: default mode of the page (see lib/mode.ts). */
+  mode?: ActivityId;
+}
+
+const { title, description, image, noindex, headerOverlay = false, headerCompact = false, mode } = Astro.props;
+const path = Astro.url.pathname;
+const pop: PopContext = Astro.props.pop ?? {
+  page:
+    path === '/'
+      ? 'accueil'
+      : path.startsWith('/prestations')
+        ? 'prestations'
+        : path.startsWith('/formations')
+          ? 'formations'
+          : path.startsWith('/boutique')
+            ? 'boutique'
+            : path.startsWith('/location')
+              ? 'location'
+              : 'autre',
+};
+---
+
+<!doctype html>
+<html lang="fr" data-mode={mode}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Lets CSS hide not-yet-revealed elements only when the reveal script can run. -->
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    {mode && <script is:inline set:html={`(function(){var h=document.documentElement,ok=['prestations','boutique','location','formations'],m=new URLSearchParams(location.search).get('mode');try{m=m||sessionStorage.getItem('ldl-mode')}catch(e){}if(ok.indexOf(m)>-1)h.dataset.mode=m})();`} />}
+    <link rel="preload" href="/fonts/archivo-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <meta name="theme-color" content="#ffffff" />
+    <SEOHead title={title} description={description} image={image} noindex={noindex} />
+    <slot name="head" />
+  </head>
+  <body>
+    <a href="#contenu" class="sr-only z-50 bg-ink px-4 py-3 text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3">Aller au contenu</a>
+    <Header overlay={headerOverlay} compact={headerCompact} />
+    <main id="contenu">
+      <slot />
+    </main>
+    <Footer />
+    <PopChat context={pop} />
+    <CartDrawer />
+    <script>
+      import '../lib/reveal';
+    </script>
+  </body>
+</html>

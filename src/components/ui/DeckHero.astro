@@ -1,0 +1,830 @@
+---
+// Interactive card deck hero, shared by /prestations/ and /formations-drone-a-lyon/.
+// A toggle chooses between two families of cards; its cards fan out in 3D around
+// the card in focus, which is in colour while the others recede in black and white.
+// Drag, arrow keys, the buttons or a click move through the deck; the deck browses on
+// its own until the visitor takes over. Switching family sends the cards away one by
+// one and deals the other deck from the centre. The blurred backdrop follows the card in
+// focus. A team member can stand in front of each family (guide). Everything fits in one
+// screen; the rest of the page follows on scroll. Families are addressed by slot in the
+// markup and styles ('a' first, 'b' second), whatever they are about.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Square from './Square.astro';
+import type { ServicePhoto } from '../../lib/service-photo';
+
+export interface DeckCard {
+  href: string;
+  label: string;
+  summary: string;
+  /** Small label on the card (sensor, duration…). */
+  tag: string;
+  /** Portrait 4:5 crop (servicePhoto(name, 4 / 5)). */
+  photo: ServicePhoto;
+}
+export interface DeckFamily {
+  /** Toggle label. */
+  label: string;
+  /** Optional team member standing in front of the deck. */
+  guide?: { photo: ImageMetadata; alt: string };
+  /** Accessible name of the deck. */
+  title: string;
+  tagline: string;
+  cards: DeckCard[];
+}
+interface Props {
+  crumb: string;
+  title: string;
+  lead: string;
+  /** Activity colour of the LDL square. */
+  color: string;
+  /** Plural noun for the counts ("prestations", "formations"). */
+  noun: string;
+  families: DeckFamily[];
+  promises: { title: string; text: string }[];
+}
+const { crumb, title, lead, color, noun, families, promises } = Astro.props;
+const SLOTS = ['a', 'b'] as const;
+const decks = families.slice(0, 2).map((f, i) => ({ ...f, id: SLOTS[i] }));
+const first = decks[0].cards[0];
+---
+
+<section class="presta-hero" aria-labelledby="deck-hero-title" data-family="a">
+  <!-- Ambient backdrop: the card in focus, blurred; two layers cross-fade. -->
+  <div class="ambient" aria-hidden="true">
+    <img class="amb is-on" src={first.photo.src} alt="" />
+    <img class="amb" alt="" />
+    <div class="veil"></div>
+  </div>
+  <div class="frame viewfinder" aria-hidden="true"></div>
+
+  <div class="wrap top">
+    <nav aria-label="Fil d’Ariane" class="hud-text crumbs">
+      <a href="/">Accueil</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{crumb}</span>
+    </nav>
+    <div class="headline">
+      <h1 id="deck-hero-title" class="display flex items-start gap-4 text-[clamp(1.9rem,3.3vw,3.1rem)]">
+        <Square color={color} class="mt-[0.2em] size-[0.3em] shrink-0" />
+        {title}
+      </h1>
+      <div class="lead">
+        <p class="leading-relaxed text-white/80">{lead}</p>
+        <div class="toggle" role="group" aria-label={`Famille de ${noun}`}>
+          <span class="toggle-thumb" aria-hidden="true"></span>
+          {
+            decks.map(({ id, label }, i) => (
+              <button type="button" data-family-btn={id} aria-pressed={i === 0 ? 'true' : 'false'} aria-controls={`deck-${id}`}>
+                {label}
+              </button>
+            ))
+          }
+        </div>
+        <p class="tagline hud-text" aria-live="polite">
+          {
+            decks.map((d) => (
+              <span data-tagline={d.id}>
+                {d.tagline}, {d.cards.length} {noun}
+              </span>
+            ))
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    {
+      decks.map(({ id: family, title: deckTitle, cards }, di) => (
+        <div
+          class="deck"
+          id={`deck-${family}`}
+          data-deck={family}
+          role="region"
+          aria-roledescription="carrousel"
+          aria-label={deckTitle}
+          hidden={di !== 0}
+          tabindex="0"
+        >
+          {cards.map((card, i) => (
+            <a href={card.href} class="card" data-card={i} style={{ '--d': i, '--ad': i }} data-active={i === 0 || undefined} draggable="false">
+              <img
+                src={card.photo.src}
+                srcset={card.photo.srcset}
+                sizes="(min-width: 1024px) 300px, 62vw"
+                width={card.photo.width}
+                height={card.photo.height}
+                alt=""
+                loading={di === 0 && i < 4 ? 'eager' : 'lazy'}
+                decoding="async"
+                draggable="false"
+              />
+              <span class="card-sensor hud-text">{card.tag}</span>
+              <span class="card-body">
+                <span class="card-title">{card.label}</span>
+                <span class="card-summary">{card.summary}</span>
+                <span class="card-cue">Découvrir</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      ))
+    }
+
+    {
+      decks.map(
+        (d) =>
+          d.guide && (
+            <Image src={d.guide.photo} alt={d.guide.alt} widths={[300, 450, 600]} sizes="(min-width: 1024px) 22vw, 0px" class="guide" data-guide={d.id} loading="eager" />
+          ),
+      )
+    }
+
+    <div class="controls">
+      <button type="button" class="nav-btn" data-step="-1" aria-label="Précédent">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+      </button>
+      <span class="counter hud-text" aria-hidden="true"><span data-pos>01</span> / <span data-total>{String(decks[0].cards.length).padStart(2, '0')}</span></span>
+      <span class="progress" aria-hidden="true"><span></span></span>
+      <button type="button" class="nav-btn" data-step="1" aria-label="Suivant">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+      </button>
+    </div>
+  </div>
+
+  <ul class="promises wrap" aria-label="Nos engagements">
+    {
+      promises.map((p) => (
+        <li>
+          <Square color="var(--color-gold)" />
+          <span>
+            <strong>{p.title}</strong>
+            <span class="text-white/65"> {p.text}</span>
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .presta-hero {
+    /* Card size follows the screen height too, so the whole hero fits in one view:
+       ~330px of header, title, toggle, controls and promises around the deck. */
+    --card-w: clamp(170px, min(20vw, calc((100svh - 330px) * 0.72)), 300px);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    min-height: 600px;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+  }
+
+  /* ---------- Ambient backdrop ---------- */
+  .ambient {
+    position: absolute;
+    inset: 0;
+  }
+  .amb {
+    position: absolute;
+    inset: -8%;
+    width: 116%;
+    height: 116%;
+    object-fit: cover;
+    filter: blur(48px) saturate(1.3);
+    opacity: 0;
+    transition: opacity 900ms var(--ease-out-strong);
+  }
+  .amb.is-on {
+    opacity: 0.55;
+  }
+  .veil {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 55% 60%, rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.75) 70%),
+      linear-gradient(rgb(0 0 0 / 0.6), rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0) 70%, rgb(0 0 0 / 0.85));
+  }
+  .frame {
+    position: absolute;
+    inset: 92px clamp(16px, 3vw, 40px) 24px;
+    --vf-inset: 0px;
+    --vf-size: 28px;
+    pointer-events: none;
+  }
+
+  /* ---------- Top: title and toggle ---------- */
+  .top {
+    position: relative;
+    z-index: 3;
+    padding-top: 92px;
+  }
+  .crumbs {
+    display: flex;
+    gap: 10px;
+    color: rgb(255 255 255 / 0.65);
+  }
+  .headline {
+    display: grid;
+    grid-template-columns: 7fr 5fr;
+    align-items: end;
+    gap: 32px;
+    margin-top: 10px;
+  }
+  .lead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* Segmented toggle with a sliding thumb. */
+  .toggle {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 4px;
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid rgb(255 255 255 / 0.18);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .toggle button {
+    position: relative;
+    z-index: 1;
+    min-height: 42px;
+    padding: 0 24px;
+    font-size: 16px;
+    font-weight: 700;
+    font-stretch: 112%;
+    color: rgb(255 255 255 / 0.7);
+    transition: color 300ms ease;
+  }
+  .toggle button[aria-pressed='true'] {
+    color: #000;
+  }
+  .toggle button:focus-visible {
+    outline-offset: -4px;
+  }
+  .toggle-thumb {
+    position: absolute;
+    inset: 4px auto 4px 4px;
+    width: calc(50% - 4px);
+    background: var(--color-gold);
+    transition: transform 450ms var(--ease-out-strong);
+  }
+  .presta-hero[data-family='b'] .toggle-thumb {
+    transform: translateX(100%);
+  }
+  .tagline {
+    position: relative;
+    min-height: 1.4em;
+    color: rgb(255 255 255 / 0.7);
+  }
+  .tagline span {
+    position: absolute;
+    inset: 0 auto auto 0;
+    white-space: nowrap;
+    transition:
+      opacity 300ms ease,
+      transform 400ms var(--ease-out-strong);
+  }
+  .presta-hero[data-family='a'] [data-tagline='b'],
+  .presta-hero[data-family='b'] [data-tagline='a'] {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  /* ---------- Deck ---------- */
+  .stage {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    min-height: calc(var(--card-w) * 1.25 + 80px);
+  }
+  .deck {
+    position: absolute;
+    inset: 0;
+    perspective: 1500px;
+    perspective-origin: 50% 40%;
+    touch-action: pan-y;
+    cursor: grab;
+    outline: none;
+  }
+  .deck[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+  .deck.is-dragging {
+    cursor: grabbing;
+  }
+  .deck:focus-visible .card[data-active] {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 6px;
+  }
+  .card {
+    --shift: 0;
+    position: absolute;
+    top: calc(50% - 22px);
+    left: 55%;
+    width: var(--card-w);
+    aspect-ratio: 4 / 5;
+    margin: calc(var(--card-w) * -0.625) 0 0 calc(var(--card-w) * -0.5);
+    overflow: hidden;
+    background: #111;
+    color: #fff;
+    transform-style: preserve-3d;
+    transform: translateX(calc((var(--d) + var(--shift)) * 62%)) translateZ(calc(var(--ad) * -150px)) rotateY(calc((var(--d) + var(--shift)) * -16deg));
+    opacity: max(0, min(1, calc(4.2 - var(--ad))));
+    z-index: calc(100 - var(--ad));
+    transition:
+      transform 750ms var(--ease-out-strong),
+      opacity 500ms ease;
+    box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.7);
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .deck.is-dragging .card {
+    transition: none;
+  }
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(1) brightness(0.7);
+    transition: filter 600ms var(--ease-out-strong);
+    pointer-events: none;
+  }
+  .card[data-active] img {
+    filter: none;
+  }
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* Strong enough for product shots on white too. */
+    background: linear-gradient(rgb(0 0 0 / 0) 22%, rgb(0 0 0 / 0.55) 48%, rgb(0 0 0 / 0.92) 78%);
+    pointer-events: none;
+  }
+  .card-sensor {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgb(0 0 0 / 0.6);
+  }
+  .card-sensor::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--color-gold);
+  }
+  .card-body {
+    position: absolute;
+    inset: auto 0 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.15;
+  }
+  /* Details unfold only on the card in focus. */
+  .card-summary,
+  .card-cue {
+    display: grid;
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 300ms ease,
+      transform 450ms var(--ease-out-strong);
+  }
+  .card-summary {
+    font-size: 14px;
+    line-height: 1.45;
+    color: rgb(255 255 255 / 0.85);
+  }
+  .card-cue {
+    width: fit-content;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-gold);
+  }
+  .card[data-active] .card-summary,
+  .card[data-active] .card-cue {
+    opacity: 1;
+    transform: none;
+    transition-delay: 180ms;
+  }
+  .card[data-active] .card-cue {
+    transition-delay: 260ms;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card[data-active]:hover img {
+      transform: scale(1.04);
+      transition: transform 900ms var(--ease-out-strong);
+    }
+  }
+
+  /* Switching family: the deck flies off card by card, the other is dealt from the centre.
+     Uses the individual translate/rotate/scale properties, so it composes with the
+     fan-out `transform`. */
+  .deck.is-leaving .card {
+    animation: card-out 520ms cubic-bezier(0.55, 0, 1, 0.45) both;
+    animation-delay: calc(var(--ad) * 35ms);
+  }
+  .deck.is-entering .card {
+    animation: card-in 900ms var(--ease-out-strong) both;
+    animation-delay: calc(140ms + var(--ad) * 60ms);
+  }
+  @keyframes card-out {
+    to {
+      translate: 0 70vh;
+      rotate: calc(var(--d) * 6deg + 8deg);
+      opacity: 0;
+    }
+  }
+  @keyframes card-in {
+    from {
+      translate: 0 -40px;
+      scale: 0.6;
+      rotate: -10deg;
+      opacity: 0;
+    }
+  }
+
+  .guide {
+    position: absolute;
+    left: clamp(8px, 3vw, 48px);
+    bottom: 0;
+    z-index: 150;
+    /* Fits the deck's stage, so the guide never reaches the title above. */
+    height: calc(100% - 8px);
+    max-width: min(22vw, 300px);
+    width: auto;
+    object-fit: contain;
+    object-position: bottom left;
+    pointer-events: none;
+    mask-image: linear-gradient(#000 72%, transparent 99%);
+    filter: drop-shadow(0 20px 40px rgb(0 0 0 / 0.5));
+    transition:
+      opacity 450ms ease,
+      translate 700ms var(--ease-out-strong);
+  }
+  /* Changing family hands over from one guide to the other: one slips down and out,
+     the other rises in. */
+  .presta-hero[data-family='a'] [data-guide='b'],
+  .presta-hero[data-family='b'] [data-guide='a'] {
+    opacity: 0;
+    translate: 0 14%;
+  }
+  .controls {
+    position: absolute;
+    left: 55%;
+    bottom: 8px;
+    z-index: 160;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    translate: -50% 0;
+  }
+  .nav-btn {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgb(255 255 255 / 0.3);
+    color: #fff;
+    background: rgb(0 0 0 / 0.35);
+    transition:
+      border-color 200ms ease,
+      transform 150ms ease-out;
+  }
+  .nav-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .nav-btn:active {
+    transform: scale(0.94);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-btn:hover {
+      border-color: var(--color-gold);
+    }
+  }
+  .counter {
+    min-width: 5.5ch;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .progress {
+    width: 80px;
+    height: 2px;
+    background: rgb(255 255 255 / 0.2);
+  }
+  .progress span {
+    display: block;
+    height: 100%;
+    background: var(--color-gold);
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+  .presta-hero.is-auto .progress span {
+    animation: auto-fill var(--auto, 4200ms) linear both;
+  }
+  @keyframes auto-fill {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .promises {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding-block: 14px 30px;
+    border-top: 1px solid rgb(255 255 255 / 0.15);
+    font-size: 14px;
+  }
+  .promises li {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  @media (max-width: 1023px) {
+    .presta-hero {
+      --card-w: clamp(150px, min(68vw, calc((100svh - 380px) * 0.8)), 300px);
+      /* Small screens: the hero (title, toggle, deck) fills the first screen; the
+         promises follow just below. */
+      height: auto;
+      min-height: 0;
+    }
+    .stage {
+      flex: none;
+      height: calc(100svh - 300px);
+      min-height: calc(var(--card-w) * 1.25 + 80px);
+    }
+    .top {
+      padding-top: 80px;
+    }
+    .headline {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .lead > p:first-child,
+    .frame {
+      display: none;
+    }
+    .guide {
+      display: none;
+    }
+    .card,
+    .controls {
+      left: 50%;
+    }
+    .card {
+      transform: translateX(calc((var(--d) + var(--shift)) * 74%)) translateZ(calc(var(--ad) * -180px)) rotateY(calc((var(--d) + var(--shift)) * -14deg));
+    }
+    .promises {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+  }
+
+  /* Opening: the words rise, then the deck is dealt. */
+  @media (prefers-reduced-motion: no-preference) {
+    .top > *,
+    .promises li {
+      animation: rise 800ms var(--ease-out-strong) backwards;
+    }
+    .headline {
+      animation-delay: 80ms;
+    }
+    .promises li {
+      animation-delay: 500ms;
+    }
+    .deck:not([hidden]):not(.is-leaving):not(.is-entering) .card {
+      animation: card-in 1000ms var(--ease-out-strong) backwards;
+      animation-delay: calc(250ms + var(--ad) * 70ms);
+    }
+    .presta-hero[data-family='a'] [data-guide='a'] {
+      animation: rise 1000ms var(--ease-out-strong) 400ms backwards;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card {
+      transform: translateX(calc(var(--d) * 104%));
+      transition: opacity 300ms ease;
+    }
+    .deck.is-leaving .card,
+    .deck.is-entering .card {
+      animation: none;
+    }
+    .amb,
+    .guide,
+    .toggle-thumb,
+    .tagline span {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Deck behaviour. Each card gets its offset from the card in focus (--d, --ad); CSS
+  // does the fan-out. Dragging shifts the whole fan (--shift) and snaps on release.
+  const hero = document.querySelector<HTMLElement>('.presta-hero');
+  if (hero) {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const decks = new Map([...hero.querySelectorAll<HTMLElement>('[data-deck]')].map((d) => [d.dataset.deck!, d]));
+    const cardsOf = (deck: HTMLElement) => [...deck.querySelectorAll<HTMLElement>('.card')];
+    const position = new Map<string, number>([...decks.keys()].map((k) => [k, 0]));
+    const ambs = [...hero.querySelectorAll<HTMLImageElement>('.amb')];
+    const pos = hero.querySelector<HTMLElement>('[data-pos]')!;
+    const total = hero.querySelector<HTMLElement>('[data-total]')!;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    let family = hero.dataset.family!;
+    let switching = false;
+
+    const deck = () => decks.get(family)!;
+
+    const setAmbient = (img: HTMLImageElement | null) => {
+      if (!img) return;
+      const src = img.currentSrc || img.src;
+      const [on, off] = ambs[0].classList.contains('is-on') ? ambs : [ambs[1], ambs[0]];
+      if (on.src === src) return;
+      off.src = src;
+      off.classList.add('is-on');
+      on.classList.remove('is-on');
+    };
+
+    const layout = (shift = 0) => {
+      const cards = cardsOf(deck());
+      const active = position.get(family)!;
+      cards.forEach((card, i) => {
+        const d = i - active;
+        card.style.setProperty('--d', String(d));
+        card.style.setProperty('--ad', String(Math.abs(d + shift)));
+        card.style.setProperty('--shift', String(shift));
+        card.toggleAttribute('data-active', d === 0);
+        card.tabIndex = d === 0 ? 0 : -1;
+      });
+      pos.textContent = pad(active + 1);
+      total.textContent = pad(cards.length);
+      setAmbient(cards[active]?.querySelector('img') ?? null);
+    };
+
+    const go = (index: number) => {
+      const n = cardsOf(deck()).length;
+      position.set(family, (index + n) % n);
+      layout();
+      restartAuto();
+    };
+    const step = (delta: number) => go(position.get(family)! + delta);
+
+    // ----- Auto-browse until the visitor takes over -----
+    const AUTO = 4200;
+    hero.style.setProperty('--auto', `${AUTO}ms`);
+    let timer = 0;
+    let auto = !still;
+    const restartAuto = () => {
+      if (!auto) return;
+      window.clearTimeout(timer);
+      hero.classList.remove('is-auto');
+      void hero.offsetWidth;
+      hero.classList.add('is-auto');
+      timer = window.setTimeout(() => {
+        if (document.hidden || scrollY > innerHeight * 0.6) return restartAuto();
+        step(1);
+      }, AUTO);
+    };
+    const stopAuto = () => {
+      auto = false;
+      window.clearTimeout(timer);
+      hero.classList.remove('is-auto');
+    };
+
+    // ----- Family toggle -----
+    const buttons = [...hero.querySelectorAll<HTMLButtonElement>('[data-family-btn]')];
+    const switchTo = (next: string) => {
+      if (next === family || switching) return;
+      const out = deck();
+      const into = decks.get(next)!;
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.familyBtn === next)));
+      hero.dataset.family = next;
+      const finish = () => {
+        out.hidden = true;
+        out.classList.remove('is-leaving');
+        into.hidden = false;
+        family = next;
+        layout();
+        into.classList.add('is-entering');
+        window.setTimeout(() => {
+          into.classList.remove('is-entering');
+          switching = false;
+        }, still ? 0 : 1600);
+        restartAuto();
+      };
+      if (still) return finish();
+      switching = true;
+      out.classList.add('is-leaving');
+      window.setTimeout(finish, 520 + 9 * 35);
+    };
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        stopAuto();
+        switchTo(b.dataset.familyBtn!);
+      }),
+    );
+
+    // ----- Clicks, keys, buttons -----
+    decks.forEach((d) => {
+      cardsOf(d).forEach((card, i) => {
+        card.addEventListener('click', (e) => {
+          if (moved) return e.preventDefault();
+          if (!card.hasAttribute('data-active')) {
+            e.preventDefault();
+            stopAuto();
+            go(i);
+          }
+        });
+      });
+      d.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          stopAuto();
+          step(e.key === 'ArrowRight' ? 1 : -1);
+          cardsOf(d)[position.get(family)!]?.focus({ preventScroll: true });
+        }
+      });
+    });
+    hero.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) =>
+      b.addEventListener('click', () => {
+        stopAuto();
+        step(Number(b.dataset.step));
+      }),
+    );
+
+    // ----- Drag / swipe -----
+    let startX = 0;
+    let dragging = false;
+    let moved = false;
+    const UNIT = () => (cardsOf(deck())[0]?.offsetWidth ?? 280) * 0.62;
+    decks.forEach((d) => {
+      d.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+      });
+    });
+    addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 6) {
+        moved = true;
+        stopAuto();
+        deck().classList.add('is-dragging');
+        deck().setPointerCapture?.(e.pointerId);
+      }
+      if (moved) layout(dx / UNIT());
+    });
+    const endDrag = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      deck().classList.remove('is-dragging');
+      if (moved) {
+        const steps = Math.round((e.clientX - startX) / UNIT());
+        go(position.get(family)! - steps);
+        // Let the click that follows a drag be ignored, then reset.
+        window.setTimeout(() => (moved = false), 0);
+      }
+    };
+    addEventListener('pointerup', endDrag);
+    addEventListener('pointercancel', endDrag);
+
+    layout();
+    restartAuto();
+  }
+</script>

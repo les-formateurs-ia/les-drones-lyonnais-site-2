@@ -1,0 +1,1096 @@
+---
+// The 18 service pages, at the URLs indexed on WordPress (/inspection-thermique-par-drone-2/…).
+// Content: src/data/service-pages/<slug>.ts. One template, two moods following the
+// family: technique = the drone's sensors and flight plan (blue), artistique = the
+// film set and editing room (gold). Every block but the hero, the process and the
+// closing shows only when the page has content for it.
+import { Image } from 'astro:assets';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import Button from '../components/ui/Button.astro';
+import ServiceHero from '../components/service/ServiceHero.astro';
+import ServiceProcess from '../components/service/ServiceProcess.astro';
+import ServiceCase from '../components/service/ServiceCase.astro';
+import popClap from '../assets/pop/clap.webp';
+import popIngenieur from '../assets/pop/ingenieur.webp';
+import { FAMILIES, SERVICES, type Service } from '../data/services';
+import { SERVICE_PAGES, serviceOf, type ServicePage } from '../data/service-pages';
+import { ACTIVITIES, SITE } from '../data/site';
+import { serviceGallery } from '../lib/service-gallery';
+import { servicePhoto } from '../lib/service-photo';
+
+export function getStaticPaths() {
+  return SERVICE_PAGES.map((page) => ({ params: { service: page.slug }, props: { page, service: serviceOf(page.slug)! } }));
+}
+interface Props {
+  page: ServicePage;
+  service: Service;
+}
+const { page, service } = Astro.props;
+const tech = service.family === 'technique';
+const photos = serviceGallery(page.slug, service.image);
+const main = photos[photos.length - 1];
+// The page's own photos (without the catalogue one), for the film strip.
+const own = photos.slice(0, -1);
+const contact = `${SITE.contactPath}?prestation=${page.slug}`;
+const n2 = (i: number) => String(i + 1).padStart(2, '0');
+
+// Related services: the ones the team links, completed with the same family.
+const linked = (page.related ?? []).map((h) => SERVICES.find((s) => s.href === h)).filter((s): s is Service => !!s);
+const others = SERVICES.filter((s) => s.family === service.family && s.href !== service.href && !linked.includes(s));
+const related = await Promise.all([...linked, ...others].slice(0, 3).map(async (s) => ({ ...s, photo: await servicePhoto(s.image, 16 / 10) })));
+
+const url = new URL(service.href, SITE.url).href;
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: service.label,
+    description: page.description,
+    url,
+    areaServed: [{ '@type': 'City', name: 'Lyon' }, { '@type': 'Country', name: 'France' }],
+    provider: { '@type': 'LocalBusiness', name: SITE.name, telephone: SITE.phone, url: SITE.url },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Accueil', item: `${SITE.url}/` },
+      { '@type': 'ListItem', position: 2, name: 'Prestations', item: new URL(ACTIVITIES.prestations.href, SITE.url).href },
+      { '@type': 'ListItem', position: 3, name: service.label, item: url },
+    ],
+  },
+  ...(page.faq?.length
+    ? [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: page.faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+        },
+      ]
+    : []),
+];
+---
+
+<BaseLayout title={`${service.label} à Lyon | ${SITE.name}`} description={page.description} pop={{ page: 'prestations' }}>
+  {structuredData.map((d) => <JsonLd slot="head" data={d} />)}
+
+  <div class="svc" data-family={service.family}>
+    <ServiceHero service={service} page={page} photo={main} />
+
+    {
+      page.pitch && (
+        <section class="pitch section-pad" aria-labelledby="pitch-title">
+          <div class="wrap pitch-grid">
+            <div data-reveal>
+              {page.pitch.kicker && <p class="kicker hud-text">{page.pitch.kicker}</p>}
+              <h2 id="pitch-title" class="display h2">
+                {page.pitch.title}
+              </h2>
+              <div class="prose">
+                {page.pitch.paragraphs.map((p) => (
+                  <p>{p}</p>
+                ))}
+              </div>
+            </div>
+            {page.pitch.checklist?.length ? (
+              <div class="checklist" data-reveal style={{ '--i': 1 }}>
+                <p class="cl-head hud-text">
+                  <span>{tech ? 'Check-list mission' : 'Feuille de service'}</span>
+                  <span>
+                    {page.pitch.checklist.length}/{page.pitch.checklist.length} ✓
+                  </span>
+                </p>
+                <ul>
+                  {page.pitch.checklist.map((c, i) => (
+                    <li style={{ '--k': i }}>
+                      <span class="box" aria-hidden="true" />
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div class="pitch-photo viewfinder" data-reveal style={{ '--i': 1 }}>
+                <Image src={own[0] ?? main} alt="" widths={[480, 720, 960]} sizes="(min-width: 1024px) 40vw, 92vw" />
+              </div>
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    {
+      own.length >= 3 && (
+        <section class="strip" aria-label="Images de nos tournages">
+          <div class="strip-head wrap hud-text">
+            <span>
+              <b class="rec">●</b> Rushs · {service.label}
+            </span>
+            <span>{own.length} plans</span>
+          </div>
+          <div class="reel">
+            <ul class="film">
+              {own.map((p, i) => (
+                <li>
+                  <Image src={p} alt="" widths={[480, 720]} sizes="(min-width: 768px) 30vw, 70vw" loading="lazy" />
+                  <span class="edge hud-text">
+                    LDL {n2(i)}A · {String(i * 7 + 12).padStart(3, '0')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      page.uses && (
+        <section class="uses section-pad" aria-labelledby="uses-title">
+          <div class="wrap">
+            <div class="head" data-reveal>
+              <p class="kicker hud-text">{page.uses.kicker ?? (tech ? 'Applications' : 'Productions')}</p>
+              <h2 id="uses-title" class="display h2">
+                {page.uses.title}
+              </h2>
+              {page.uses.intro && <p class="lead">{page.uses.intro}</p>}
+            </div>
+            <ul class="uses-list">
+              {page.uses.items.map((u, i) => (
+                <li data-reveal style={{ '--i': i % 2 }}>
+                  <span class="u-num" aria-hidden="true">
+                    {n2(i)}
+                  </span>
+                  <div>
+                    <h3>{u.title}</h3>
+                    {u.text && <p>{u.text}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      (page.method || page.deliverables) && (
+        <section class="kit section-pad bg-mist" aria-label={tech ? 'Matériel et livrables' : 'Matériel et livraison'}>
+          <div class="wrap kit-grid">
+            {page.method && (
+              <div class="loadout" data-reveal>
+                <p class="kicker hud-text">{page.method.kicker ?? (tech ? 'Configuration' : 'Sur le plateau')}</p>
+                <h2 class="display h3">{page.method.title}</h2>
+                {page.method.intro && <p class="lead">{page.method.intro}</p>}
+                <ul>
+                  {page.method.items.map((m) => (
+                    <li>{m}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {page.deliverables && (
+              <div class="exports" data-reveal style={{ '--i': 1 }}>
+                <p class="kicker hud-text">{page.deliverables.kicker ?? (tech ? 'Livrables' : 'Livraison')}</p>
+                <h2 class="display h3">{page.deliverables.title}</h2>
+                <ul>
+                  {page.deliverables.items.map((d, i) => (
+                    <li>
+                      <span class="file hud-text" aria-hidden="true">
+                        {tech ? `LIV_${n2(i)}` : `EXPORT_${n2(i)}`}
+                      </span>
+                      <b>{d.title}</b>
+                      {d.text && <span class="d-text">{d.text}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    {
+      page.audience && (
+        <section class="audience" aria-labelledby="audience-title">
+          <h2 id="audience-title" class="wrap hud-text">
+            {page.audience.title}
+          </h2>
+          <div class="ticker" aria-hidden="true">
+            {[0, 1].map(() => (
+              <ul>
+                {page.audience!.items.map((a) => (
+                  <li>{a}</li>
+                ))}
+              </ul>
+            ))}
+          </div>
+          <ul class="sr-only">
+            {page.audience.items.map((a) => (
+              <li>{a}</li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <ServiceProcess family={service.family} process={page.process} />
+
+    {page.caseStudy && <ServiceCase family={service.family} study={page.caseStudy} photo={own[1] ?? own[0] ?? main} label={service.label} />}
+
+    {
+      page.pricing && (
+        <section class="pricing section-pad" aria-labelledby="pricing-title">
+          <div class="wrap pricing-grid">
+            <div data-reveal>
+              <p class="kicker hud-text">Tarifs indicatifs</p>
+              <h2 id="pricing-title" class="display h2">
+                {page.pricing.title}
+              </h2>
+              {page.pricing.note && <p class="lead">{page.pricing.note}</p>}
+              <Button href={contact} class="mt-8">
+                Demander une estimation gratuite
+              </Button>
+            </div>
+            <dl class="prices" data-reveal style={{ '--i': 1 }}>
+              {page.pricing.rows.map((r) => (
+                <div>
+                  <dt>{r.label}</dt>
+                  <dd>{r.price}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      page.reasons && (
+        <section class="reasons section-pad" aria-labelledby="reasons-title">
+          <div class="wrap">
+            <h2 id="reasons-title" class="display h2" data-reveal>
+              {page.reasons.title}
+            </h2>
+            <ul class="reasons-list">
+              {page.reasons.items.map((r, i) => (
+                <li data-reveal style={{ '--i': i % 3 }}>
+                  <span class="r-mark" aria-hidden="true" />
+                  <h3>{r.title}</h3>
+                  {r.text && <p>{r.text}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      page.faq && (
+        <section class="faq section-pad bg-mist" aria-labelledby="faq-title">
+          <div class="wrap faq-grid">
+            <div data-reveal>
+              <p class="kicker hud-text">{service.label}</p>
+              <h2 id="faq-title" class="display h2">
+                Questions fréquentes
+              </h2>
+            </div>
+            <div class="faq-list">
+              {page.faq.map((f, i) => (
+                <details name="faq" open={i === 0}>
+                  <summary>
+                    <span>{f.q}</span>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      related.length > 0 && (
+        <section class="related section-pad" aria-labelledby="related-title">
+          <div class="wrap">
+            <div class="related-head">
+              <h2 id="related-title" class="display h3">
+                {linked.length ? 'Prestations associées' : `Autres ${FAMILIES[service.family].title.toLowerCase()}`}
+              </h2>
+              <a href={`${ACTIVITIES.prestations.href}${tech ? '' : '?famille=artistique'}#${service.family}`} class="all">
+                Toutes les prestations <span aria-hidden="true">→</span>
+              </a>
+            </div>
+            <ul class="related-list">
+              {related.map((r, i) => (
+                <li data-reveal style={{ '--i': i }}>
+                  <a href={r.href} class="r-card">
+                    <span class="r-img viewfinder">
+                      <img src={r.photo.src} srcset={r.photo.srcset} sizes="(min-width: 768px) 30vw, 92vw" alt="" width={r.photo.width} height={r.photo.height} loading="lazy" decoding="async" />
+                    </span>
+                    <span class="r-name">
+                      {r.label} <span aria-hidden="true">→</span>
+                    </span>
+                    <span class="r-sum">{r.summary}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
+    <section class="closing" aria-labelledby="closing-title">
+      <div class="wrap closing-grid">
+        <div class="closing-copy" data-reveal>
+          <p class="kicker hud-text">{tech ? 'Prêt pour le décollage' : 'Silence, on tourne'}</p>
+          <h2 id="closing-title" class="display">{page.closing.title}</h2>
+          <p class="closing-text">{page.closing.text}</p>
+          <div class="ctas">
+            <Button href={contact} variant="gold">Demander un devis</Button>
+            <Button href={SITE.phoneHref} variant="outline-light">{SITE.phone}</Button>
+          </div>
+        </div>
+        <div class="pop-side" data-reveal style={{ '--i': 1 }}>
+          <Image src={tech ? popIngenieur : popClap} alt="Pop, la mascotte des Drones Lyonnais" widths={[240, 360, 480]} sizes="240px" class="pop" />
+          <div class="pop-bubble">
+            <p>Une question avant de vous lancer ? Je vous réponds tout de suite.</p>
+            <div class="pop-chips">
+              <button type="button" data-pop-open data-pop-ask="Les autorisations de vol ?">
+                Les autorisations de vol ?
+              </button>
+              <button type="button" data-pop-open data-pop-ask="Quelle prestation pour mon projet ?">
+                Quelle prestation choisir ?
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</BaseLayout>
+
+<style>
+  .svc {
+    --hl: #6f8dff;
+    --hl-ink: var(--color-prestations);
+  }
+  .svc[data-family='artistique'] {
+    --hl: var(--color-gold);
+    --hl-ink: var(--color-gold-deep);
+  }
+  .kicker {
+    text-transform: uppercase;
+    color: var(--hl-ink);
+  }
+  .h2 {
+    margin-top: 10px;
+    max-width: 22ch;
+    font-size: clamp(2rem, 3.6vw, 3rem);
+  }
+  .h3 {
+    margin-top: 10px;
+    font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  }
+  .lead {
+    margin-top: 14px;
+    max-width: 56ch;
+    font-size: 1.08rem;
+    line-height: 1.6;
+    color: var(--color-ink-soft);
+  }
+
+  /* ---------- Pitch + pre-flight checklist ---------- */
+  .pitch-grid {
+    display: grid;
+    gap: 48px 72px;
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .pitch-grid {
+      grid-template-columns: 7fr 5fr;
+    }
+  }
+  .prose {
+    display: grid;
+    gap: 14px;
+    margin-top: 22px;
+    max-width: 60ch;
+    font-size: 1.1rem;
+    line-height: 1.65;
+    color: var(--color-ink-soft);
+  }
+  .prose p:first-child {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .checklist {
+    background: #0b0d12;
+    color: #fff;
+    box-shadow: 0 30px 60px -36px rgb(0 0 0 / 0.6);
+  }
+  .cl-head {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 22px;
+    text-transform: uppercase;
+    color: var(--hl);
+    border-bottom: 1px solid rgb(255 255 255 / 0.12);
+  }
+  .checklist ul {
+    padding: 8px 22px 14px;
+  }
+  .checklist li {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    padding: 11px 0;
+    line-height: 1.45;
+    border-bottom: 1px dashed rgb(255 255 255 / 0.12);
+  }
+  .checklist li:last-child {
+    border-bottom: 0;
+  }
+  .box {
+    position: relative;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    translate: 0 2px;
+    border: 1.5px solid var(--hl);
+  }
+  .box::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: var(--hl);
+    clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 22%, 86% 8%, 38% 72%);
+  }
+  .pitch-photo {
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #111;
+  }
+  .pitch-photo :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .box::after {
+      transition:
+        transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(500ms + var(--k) * 180ms),
+        opacity 200ms ease calc(500ms + var(--k) * 180ms);
+    }
+    :global(.js) .checklist:not(.is-in) .box::after {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+  }
+
+  /* ---------- Film strip ---------- */
+  .strip {
+    overflow: hidden;
+    padding-block: 28px 36px;
+    color: #fff;
+    background: #0b0a09;
+  }
+  .strip-head {
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .rec {
+    color: #ff3b30;
+  }
+  .reel {
+    margin-top: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .film {
+    display: flex;
+    gap: 6px;
+    width: max-content;
+    padding: 26px clamp(16px, 4.5vw, 56px);
+    position: relative;
+    background: #1b1916;
+  }
+  /* Sprocket holes, top and bottom. */
+  .film::before,
+  .film::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: repeating-linear-gradient(90deg, transparent 0 8px, #0b0a09 8px 20px, transparent 20px 28px);
+  }
+  .film::before {
+    top: 8px;
+  }
+  .film::after {
+    bottom: 8px;
+  }
+  .film li {
+    position: relative;
+    flex: none;
+    width: clamp(260px, 30vw, 420px);
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    background: #000;
+  }
+  .film :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.9);
+    transition:
+      filter 400ms ease,
+      transform 900ms var(--ease-out-strong);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .film li:hover :global(img) {
+      filter: saturate(1.1);
+      transform: scale(1.04);
+    }
+  }
+  .edge {
+    position: absolute;
+    left: 10px;
+    bottom: 8px;
+    color: #ffb347;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  }
+  /* The reel runs with the page scroll where supported (the strip is then not scrollable). */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) and (min-width: 900px) {
+      .reel {
+        overflow: visible;
+      }
+      .film {
+        animation-name: reel;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: view();
+        animation-range: cover 0% cover 100%;
+      }
+    }
+  }
+  @keyframes reel {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(min(0px, calc(-100% + 100vw)));
+    }
+  }
+
+  /* ---------- Uses ---------- */
+  .uses-list {
+    display: grid;
+    margin-top: 44px;
+    border-top: 1px solid var(--color-line);
+  }
+  @media (min-width: 768px) {
+    .uses-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 48px;
+    }
+  }
+  .uses-list li {
+    position: relative;
+    display: flex;
+    gap: 22px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .uses-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 100%;
+    height: 2px;
+    background: var(--hl-ink);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 500ms var(--ease-out-strong);
+  }
+  .u-num {
+    flex: none;
+    font-size: 2.6rem;
+    font-weight: 800;
+    font-stretch: 125%;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--hl-ink) 55%, transparent);
+    transition: color 300ms ease;
+  }
+  .uses-list h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .uses-list p {
+    margin-top: 8px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .uses-list li:hover::before {
+      transform: scaleX(1);
+    }
+    .uses-list li:hover .u-num {
+      color: var(--hl-ink);
+    }
+  }
+
+  /* ---------- Kit: equipment + deliverables ---------- */
+  .kit-grid {
+    display: grid;
+    gap: 48px 64px;
+  }
+  @media (min-width: 1024px) {
+    .kit-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .kit-grid > :only-child {
+    grid-column: 1 / -1;
+  }
+  .loadout ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 2px;
+    margin-top: 26px;
+  }
+  .loadout li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    font-weight: 600;
+    line-height: 1.35;
+    background: #fff;
+  }
+  .loadout li::before {
+    content: '';
+    flex: none;
+    width: 10px;
+    height: 10px;
+    background: var(--hl-ink);
+  }
+  .exports ul {
+    display: grid;
+    gap: 10px;
+    margin-top: 26px;
+  }
+  .exports li {
+    position: relative;
+    display: grid;
+    gap: 4px;
+    padding: 16px 18px 16px 20px;
+    background: #fff;
+    border-left: 3px solid var(--hl-ink);
+  }
+  .file {
+    color: var(--color-muted);
+  }
+  .exports b {
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .d-text {
+    line-height: 1.5;
+    color: var(--color-ink-soft);
+  }
+
+  /* ---------- Audience ticker ---------- */
+  .audience {
+    padding-block: 36px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .audience h2 {
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .ticker {
+    display: flex;
+    width: max-content;
+    margin-top: 16px;
+  }
+  .ticker ul {
+    display: flex;
+  }
+  .ticker li {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding-right: 28px;
+    font-size: clamp(1.5rem, 3vw, 2.4rem);
+    font-weight: 700;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .ticker li::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: var(--hl-ink);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ticker {
+      animation: ticker 40s linear infinite;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker {
+      flex-wrap: wrap;
+      width: auto;
+      padding-inline: clamp(16px, 4.5vw, 56px);
+    }
+    .ticker ul:last-child {
+      display: none;
+    }
+    .ticker ul {
+      flex-wrap: wrap;
+    }
+  }
+  @keyframes ticker {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* ---------- Pricing ---------- */
+  .pricing-grid {
+    display: grid;
+    gap: 40px 72px;
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .pricing-grid {
+      grid-template-columns: 5fr 7fr;
+    }
+  }
+  .prices {
+    background: #0b0d12;
+    color: #fff;
+  }
+  .prices div {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 22px 26px;
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .prices dt {
+    font-weight: 600;
+  }
+  .prices div::after {
+    content: '';
+    order: 1;
+    flex: 1;
+    border-bottom: 1px dotted rgb(255 255 255 / 0.3);
+  }
+  .prices dd {
+    order: 2;
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    font-variant-numeric: tabular-nums;
+    color: var(--hl);
+    white-space: nowrap;
+  }
+
+  /* ---------- Reasons ---------- */
+  .reasons {
+    border-top: 1px solid var(--color-line);
+  }
+  .reasons-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(max(240px, calc((100% - 80px) / 3)), 1fr));
+    gap: 36px 40px;
+    margin-top: 44px;
+  }
+  .r-mark {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--hl-ink);
+    background: linear-gradient(var(--hl-ink), var(--hl-ink)) center / 10px 10px no-repeat;
+  }
+  .reasons-list h3 {
+    margin-top: 16px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-stretch: 108%;
+    line-height: 1.3;
+  }
+  .reasons-list p {
+    margin-top: 8px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+
+  /* ---------- FAQ ---------- */
+  .faq-grid {
+    display: grid;
+    gap: 36px 64px;
+  }
+  @media (min-width: 1024px) {
+    .faq-grid {
+      grid-template-columns: 4fr 8fr;
+      align-items: start;
+    }
+    .faq-grid > :first-child {
+      position: sticky;
+      top: 100px;
+    }
+  }
+  .faq-list {
+    border-top: 1px solid var(--color-line);
+  }
+  details {
+    border-bottom: 1px solid #d6d6d3;
+  }
+  summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 0;
+    font-size: 1.12rem;
+    font-weight: 600;
+    line-height: 1.4;
+    list-style: none;
+    cursor: pointer;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  .plus {
+    position: relative;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 50%;
+    transition:
+      rotate 300ms var(--ease-out-strong),
+      background-color 200ms ease;
+  }
+  .plus::before,
+  .plus::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 11px;
+    height: 1.5px;
+    translate: -50% -50%;
+    background: currentColor;
+  }
+  .plus::after {
+    rotate: 90deg;
+  }
+  details[open] .plus {
+    rotate: 45deg;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  details p {
+    max-width: 68ch;
+    padding-bottom: 24px;
+    line-height: 1.65;
+    color: var(--color-ink-soft);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    details[open] p {
+      animation: faq-in 400ms var(--ease-out-strong);
+    }
+  }
+  @keyframes faq-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+
+  /* ---------- Closing (Pop's one appearance) ---------- */
+  .closing {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(80px, 9vw, 120px) 0;
+    color: #fff;
+    background:
+      radial-gradient(ellipse 50% 70% at 80% 100%, color-mix(in srgb, var(--hl) 28%, transparent), transparent 70%),
+      #050608;
+  }
+  .closing-grid {
+    display: grid;
+    gap: 24px 48px;
+    align-items: end;
+  }
+  @media (min-width: 1024px) {
+    .closing-grid {
+      grid-template-columns: 7fr 5fr;
+    }
+  }
+  .closing-copy {
+    padding-bottom: clamp(56px, 8vw, 110px);
+  }
+  .closing .kicker {
+    color: var(--hl);
+  }
+  .closing h2 {
+    margin-top: 12px;
+    max-width: 18ch;
+    font-size: clamp(2.2rem, 4.6vw, 4rem);
+  }
+  .closing-text {
+    margin-top: 18px;
+    max-width: 52ch;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: rgb(255 255 255 / 0.72);
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 30px;
+  }
+  .pop-side {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0;
+  }
+  .pop-side :global(.pop) {
+    width: clamp(170px, 18vw, 240px);
+    height: auto;
+    filter: drop-shadow(0 20px 30px rgb(0 0 0 / 0.5));
+  }
+  .pop-bubble {
+    position: relative;
+    align-self: center;
+    max-width: 250px;
+    margin-left: -10px;
+    padding: 16px 18px;
+    color: var(--color-ink);
+    background: #fff;
+    border-radius: 18px 18px 18px 4px;
+  }
+  .pop-bubble p {
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .pop-chips {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .pop-chips button {
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    border: 1px solid var(--color-ink);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      transform 160ms ease-out;
+  }
+  .pop-chips button:active {
+    transform: scale(0.97);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .pop-chips button:hover {
+      color: #fff;
+      background: var(--color-ink);
+    }
+  }
+  @media (max-width: 1023px) {
+    .closing-copy {
+      padding-bottom: 0;
+    }
+    .pop-side {
+      justify-content: flex-start;
+    }
+  }
+
+  /* ---------- Related ---------- */
+  .related-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px 24px;
+  }
+  .all {
+    font-weight: 600;
+    border-bottom: 1px solid currentColor;
+  }
+  .related-list {
+    display: grid;
+    gap: 28px 20px;
+    margin-top: 32px;
+  }
+  @media (min-width: 768px) {
+    .related-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .r-card {
+    display: grid;
+    gap: 10px;
+  }
+  .r-img {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: #111;
+  }
+  .r-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 900ms var(--ease-out-strong);
+  }
+  .r-name {
+    margin-top: 6px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-stretch: 110%;
+  }
+  .r-name span {
+    display: inline-block;
+    transition: transform 300ms var(--ease-out-strong);
+  }
+  .r-sum {
+    line-height: 1.5;
+    color: var(--color-ink-soft);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .r-card:hover img {
+      transform: scale(1.05);
+    }
+    .r-card:hover .r-name span {
+      transform: translateX(5px);
+    }
+  }
+</style>

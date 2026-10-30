@@ -1,0 +1,62 @@
+---
+// /formations-drone-a-lyon/ — the training hub, rebuilt from the current page: technical
+// or artistic choice (FormationsHero: training field + flipping path card), the three steps of a
+// path and CPF funding (FormationGuide), both paths as fact sheets from Open to specialisations, how a training goes, funding and contact.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import FormationsHero from '../components/formations/FormationsHero.astro';
+import FormationGuide from '../components/formations/FormationGuide.astro';
+import FormationCatalog from '../components/formations/FormationCatalog.astro';
+import Method from '../components/prestations/Method.astro';
+import FinalCta from '../components/home/FinalCta.astro';
+import { FORMATIONS, FORMATION_STEPS } from '../data/formations';
+import { SITE } from '../data/site';
+
+// Title and description keep the intent of the current WordPress page.
+const title = 'Formation drone à Lyon : BAPD, CATS et métiers | Les Drones Lyonnais';
+const description =
+  'Formez-vous au pilotage de drone à Lyon : BAPD, CATS et spécialisations techniques ou audiovisuelles. Formation drone finançable par le CPF.';
+const pageUrl = `${SITE.url}/formations-drone-a-lyon/`;
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Accueil', item: `${SITE.url}/` },
+      { '@type': 'ListItem', position: 2, name: 'Formations', item: pageUrl },
+    ],
+  },
+  ...FORMATIONS.map((f) => ({
+    '@context': 'https://schema.org',
+    '@type': 'Course',
+    name: `${f.title}, ${f.scope}`,
+    description: f.summary,
+    url: `${pageUrl}#${f.id}`,
+    provider: { '@type': 'Organization', name: SITE.name, url: `${SITE.url}/` },
+  })),
+];
+---
+
+<BaseLayout title={title} description={description} headerOverlay>
+  {structuredData.map((data) => <JsonLd slot="head" data={data} />)}
+  <FormationsHero />
+  <FormationGuide />
+  <!-- The path chosen in the hero comes first (html[data-famille], set by the hero). -->
+  <div class="catalogs">
+    <FormationCatalog family="technique" />
+    <FormationCatalog family="artistique" dark />
+  </div>
+  <Method title="Comment se déroule une formation" intro="De la première prise de contact à la certification, un parcours encadré par des télépilotes en activité." steps={FORMATION_STEPS} label="Parcours" />
+  <FinalCta title="Une formation, un financement, une date ?" text="Dites-nous où vous en êtes : nous vous orientons vers la bonne formation et le financement adapté, CPF compris." />
+</BaseLayout>
+
+<style>
+  .catalogs {
+    display: flex;
+    flex-direction: column;
+  }
+  :global(html[data-famille='artistique'] #artistique) {
+    order: -1;
+  }
+</style>

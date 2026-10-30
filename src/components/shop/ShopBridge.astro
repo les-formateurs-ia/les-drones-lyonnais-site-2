@@ -1,0 +1,56 @@
+---
+// Closing band of the shop and rental pages: buy or rent, and talk to a pilot.
+import Button from '../ui/Button.astro';
+import Square from '../ui/Square.astro';
+import { ACTIVITIES, SITE } from '../../data/site';
+
+interface Props {
+  mode: 'vente' | 'location';
+}
+const { mode } = Astro.props;
+const other = mode === 'vente' ? ACTIVITIES.location : ACTIVITIES.boutique;
+---
+
+<section class="bridge bg-ink text-white" aria-label="Pour aller plus loin">
+  <div class="wrap grid gap-px md:grid-cols-3">
+    <div class="cell" data-reveal>
+      <p class="label"><Square color={mode === 'vente' ? ACTIVITIES.location.color : 'var(--color-paper)'} /> {mode === 'vente' ? 'Location ou achat ?' : 'Achat ou location ?'}</p>
+      <p class="text">{mode === 'vente' ? 'Pour un tournage ponctuel, la location revient souvent moins cher.' : 'Vous volez souvent ? L’achat devient vite rentable.'}</p>
+      <Button href={other.href} variant="outline-light" size="sm">{mode === 'vente' ? 'Voir la location' : 'Voir la boutique'}</Button>
+    </div>
+    <div class="cell" data-reveal style={{ '--i': 1 }}>
+      <p class="label"><Square color="var(--color-gold)" /> Besoin d’aide pour choisir ?</p>
+      <p class="text">Nos télépilotes vous orientent selon vos missions et la réglementation.</p>
+      <Button href={SITE.contactPath} variant="gold" size="sm">Parler à un expert</Button>
+    </div>
+    <div class="cell" data-reveal style={{ '--i': 2 }}>
+      <p class="label"><Square color={ACTIVITIES.formations.color} /> Professionnels, étudiants, associations</p>
+      <p class="text">Conditions adaptées sur demande, devis et facturation au nom de votre structure.</p>
+      <Button href={SITE.phoneHref} variant="outline-light" size="sm">{SITE.phone}</Button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: clamp(40px, 6vw, 72px) clamp(0px, 2vw, 32px);
+    border-top: 1px solid rgb(255 255 255 / 0.12);
+  }
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .text {
+    max-width: 36ch;
+    line-height: 1.55;
+    color: rgb(255 255 255 / 0.7);
+  }
+</style>

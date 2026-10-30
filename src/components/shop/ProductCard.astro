@@ -1,0 +1,93 @@
+---
+// A product in a grid: photo on white, name, class badge for drones, price (TTC first,
+// HT underneath, as professionals compare both). Rentals are priced per day.
+import { productPhoto } from '../../lib/product-photo';
+import { droneClass, formatPrice, productUrl, type Product } from '../../data/catalog';
+
+interface Props {
+  product: Product;
+}
+const { product } = Astro.props;
+const photo = await productPhoto(product, 1);
+const cls = product.kind === 'vente' ? droneClass(product) : null;
+const rent = product.kind === 'location';
+---
+
+<a href={productUrl(product)} class="product">
+  <span class="media">
+    {photo && <img src={photo.src} srcset={photo.srcset} sizes="(min-width: 1024px) 280px, 45vw" width={photo.width} height={photo.height} alt="" loading="lazy" decoding="async" />}
+    {cls && <span class="badge hud-text">Classe {cls}</span>}
+  </span>
+  <span class="name">{product.name}</span>
+  <span class="price">
+    {rent && <span class="from">À partir de</span>}
+    <strong>{formatPrice(product.priceTTC)} TTC{rent && ' / jour'}</strong>
+    <span class="ht">{formatPrice(product.priceHT)} HT</span>
+  </span>
+</a>
+
+<style>
+  .product {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .media {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--color-line);
+    transition: border-color 250ms ease;
+  }
+  .media img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 700ms var(--ease-out-strong);
+  }
+  .badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 3px 8px;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .name {
+    margin-top: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .price {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+    padding-top: 10px;
+  }
+  .from,
+  .ht {
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .price strong {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .product:hover .media {
+      border-color: var(--color-ink);
+    }
+    .product:hover .media img {
+      transform: scale(1.05);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .media img {
+      transition: none;
+    }
+  }
+</style>

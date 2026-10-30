@@ -1,0 +1,24 @@
+---
+// The drone camera's sensor modes as SVG filters, used with `filter: url(#sensor-…)`:
+// a thermal colour map and an edge-detected survey drawing. Include once per page.
+---
+
+<svg width="0" height="0" class="pointer-events-none absolute" aria-hidden="true" focusable="false">
+  <filter id="sensor-thermal" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0" />
+    <feComponentTransfer>
+      <feFuncR type="table" tableValues="0.02 0.25 0.7 0.95 1 1" />
+      <feFuncG type="table" tableValues="0.01 0.02 0.12 0.45 0.82 1" />
+      <feFuncB type="table" tableValues="0.12 0.45 0.55 0.15 0.1 0.85" />
+    </feComponentTransfer>
+  </filter>
+  <filter id="sensor-survey" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0" />
+    <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 8 -1 -1 -1 -1" preserveAlpha="true" />
+    <feComponentTransfer>
+      <feFuncR type="linear" slope="5" intercept="0" />
+      <feFuncG type="linear" slope="3.6" intercept="0" />
+      <feFuncB type="linear" slope="1.8" intercept="0" />
+    </feComponentTransfer>
+  </filter>
+</svg>

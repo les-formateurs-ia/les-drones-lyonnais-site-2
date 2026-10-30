@@ -1,0 +1,1119 @@
+---
+// /produit/<slug>/ — one page per product of the shop and the rental, at the URLs the
+// WordPress site already uses. Gallery, prices (TTC and HT), documents, matching
+// accessories and the team's content from the current pages (ProductStory), then:
+// - sale: order request (Stripe checkout comes next);
+// - rental: pick the dates, see the estimate, send the booking request (validated by the
+//   team, as agreed: pilot level and availability are checked before payment).
+import { Image, getImage } from 'astro:assets';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import JsonLd from '../../components/seo/JsonLd.astro';
+import Button from '../../components/ui/Button.astro';
+import Square from '../../components/ui/Square.astro';
+import ProductCard from '../../components/shop/ProductCard.astro';
+import popDrone from '../../assets/pop/drone.webp';
+import popConseil from '../../assets/pop/conseil.webp';
+import ProductStory from '../../components/shop/ProductStory.astro';
+import RentalRates from '../../components/shop/RentalRates.astro';
+import { productPhoto } from '../../lib/product-photo';
+import { classAdvice } from '../../data/regulation';
+import { PRODUCTS, RENTAL_FILTERS, RENTAL_TIERS, SHOP_FILTERS, crossSellOf, droneClass, formatPrice, otherModeOf, productImages, productPage, productUrl, type Product } from '../../data/catalog';
+import { ACTIVITIES, SITE } from '../../data/site';
+import { OCTOBRE_ROSE, isCampaignOn } from '../../data/campaign';
+
+export function getStaticPaths() {
+  return PRODUCTS.map((product) => ({ params: { slug: product.slug }, props: { product } }));
+}
+interface Props {
+  product: Product;
+}
+const { product } = Astro.props;
+const rent = product.kind === 'location';
+const parent = rent ? ACTIVITIES.location : ACTIVITIES.boutique;
+const images = productImages(product);
+const cls = rent ? null : droneClass(product);
+const filters = rent ? RENTAL_FILTERS : SHOP_FILTERS;
+const filter = filters.find((f) => f.match(product));
+const page = productPage(product);
+const other = otherModeOf(product);
+const crossSell = await Promise.all(crossSellOf(product).map(async (p) => ({ p, photo: await productPhoto(p, 1) })));
+const related = PRODUCTS.filter((p) => p.slug !== product.slug && p.kind === product.kind && !crossSell.some((c) => c.p.slug === p.slug) && (filter ? filter.match(p) : true)).slice(0, 4);
+// The summary already shows the first sentences; the details list the rest.
+const details = product.description.filter((b, i) => !(i === 0 && b.type === 'p' && product.summary && b.text.startsWith(product.summary.slice(0, 40))));
+
+const title = `${product.name} – ${rent ? 'Location' : 'Achat'} | Les Drones Lyonnais`;
+const description = (product.summary || product.name).slice(0, 155);
+const url = new URL(productUrl(product), SITE.url).href;
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.summary,
+    url,
+    category: rent ? 'Location' : 'Boutique',
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'EUR',
+      price: product.priceTTC.toFixed(2),
+      availability: 'https://schema.org/InStock',
+      seller: { '@type': 'Organization', name: SITE.name },
+      ...(rent ? { priceSpecification: { '@type': 'UnitPriceSpecification', price: product.priceTTC.toFixed(2), priceCurrency: 'EUR', unitCode: 'DAY' } } : {}),
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Accueil', item: `${SITE.url}/` },
+      { '@type': 'ListItem', position: 2, name: parent.label, item: new URL(parent.href, SITE.url).href },
+      { '@type': 'ListItem', position: 3, name: product.name, item: url },
+    ],
+  },
+];
+const today = new Date().toISOString().slice(0, 10);
+const pad = (n: number) => String(n).padStart(2, '0');
+// Octobre Rose: drones for sale carry the donation (hidden again by the script after the end date).
+const rose = !rent && product.categories.includes('drones') && isCampaignOn(OCTOBRE_ROSE.until);
+// Buy / rent switch, when the product exists in both.
+const modes = other ? [{ kind: 'vente', label: 'Acheter', href: rent ? productUrl(other) : undefined, price: `${formatPrice((rent ? other : product).priceTTC)}` }, { kind: 'location', label: 'Louer', href: rent ? undefined : productUrl(other), price: `dès ${formatPrice((rent ? product : other).priceTTC)} / jour` }] : null;
+
+// Cart (sale only): what the cart drawer shows for this product and the matching
+// accessories it suggests (CartDrawer, lib/cart.ts).
+const thumb = async (p: Product) => {
+  const img = productImages(p)[0];
+  return img ? (await getImage({ src: img, width: 160, height: 160, fit: 'contain', background: '#ffffff', format: 'webp' })).src : undefined;
+};
+const cartItem = async (p: Product) => ({ slug: p.slug, name: p.name, price: p.priceTTC, url: productUrl(p), image: await thumb(p) });
+const cart = rent ? null : JSON.stringify(await cartItem(product));
+const cartSuggest = rent ? null : JSON.stringify(await Promise.all(crossSell.filter(({ p }) => p.kind === 'vente').map(({ p }) => cartItem(p))));
+
+// Pop's advice for this product.
+const isDrone = product.categories.includes('drones');
+const permis = page.permis;
+const advice = permis?.requirement ? `${permis.requirement}${permis.requirementDetail ? ` : ${permis.requirementDetail}` : ''}.` : cls ? classAdvice(cls) : undefined;
+// Pop's advice, shown once as its own section (PopAdvice): the team's own words for this
+// product when they exist, otherwise the most useful general advice.
+const fallback = cls && !permis
+  ? { title: 'Le point réglementation', text: advice! }
+  : rent && isDrone
+    ? { title: 'Avant de louer', text: 'Avant de confirmer, nous vérifions votre niveau de pilotage (A1/A3, A2, BAPD ou CATS selon le drone et la mission). Pas encore certifié ? Nos formations sont faites pour ça.' }
+    : rent
+      ? { title: 'Retrait ou livraison', text: 'Retrait à Lyon ou livraison, avec une prise en main du matériel. Une question sur ce qui est inclus ? Demandez-moi.' }
+      : { title: 'Compatible avec votre drone ?', text: 'Dites-moi quel drone vous avez : je vous confirme la compatibilité, ou l’équipe le fait pour vous.' };
+// Same quick questions as Pop's chat on this page (PopChat), so each one has an answer.
+const chips = rent
+  ? ['Comment se passe une location ?', 'Faut-il une formation ?', 'Ce produit est-il disponible ?']
+  : cls
+    ? ['Faut-il une formation ?', 'Ce produit est-il disponible ?', 'Louer plutôt qu’acheter ?']
+    : ['Ce produit est-il disponible ?', 'Quel drone choisir ?', 'Parler à l’équipe'];
+const popAdvice = {
+  title: page.pop?.length ? 'Pop vous conseille' : fallback.title,
+  messages: page.pop?.length ? page.pop : [fallback.text],
+  chips,
+  pose: isDrone && !rent ? popDrone : popConseil,
+};
+---
+
+<BaseLayout title={title} description={description} pop={{ page: 'produit', product: { name: product.name, kind: product.kind, cls, advice } }}>
+  {structuredData.map((d) => <JsonLd slot="head" data={d} />)}
+
+  <section class="wrap pt-8 pb-16 md:pt-12 md:pb-24" aria-labelledby="product-title">
+    <nav aria-label="Fil d’Ariane" class="hud-text crumbs">
+      <a href="/">Accueil</a>
+      <span aria-hidden="true">/</span>
+      <a href={parent.href}>{parent.label}</a>
+      {
+        filter && (
+          <>
+            <span aria-hidden="true">/</span>
+            <a href={`${parent.href}?filtre=${filter.id}#catalogue`}>{filter.label}</a>
+          </>
+        )
+      }
+    </nav>
+
+    <div class="mt-6 grid gap-10 lg:grid-cols-12 lg:gap-14">
+      <!-- Gallery -->
+      <div class="gallery lg:col-span-7 lg:sticky lg:top-24 lg:self-start" data-gallery>
+        <div class="stage viewfinder">
+          {
+            images.map((img, i) => (
+              <Image
+                src={img}
+                alt={i === 0 ? product.name : ''}
+                widths={[480, 720, 900]}
+                sizes="(min-width: 1024px) 56vw, 92vw"
+                class="shot"
+                data-shot={i}
+                data-active={i === 0 || undefined}
+                loading={i === 0 ? 'eager' : 'lazy'}
+              />
+            ))
+          }
+          <span class="badges">
+            {cls && <span class="badge hud-text">Classe {cls}</span>}
+            {rose && <span class="badge badge-rose hud-text" data-rose-until={OCTOBRE_ROSE.until}>♥ {OCTOBRE_ROSE.label}</span>}
+          </span>
+          {images.length > 1 && (
+            <span class="counter hud-text" aria-hidden="true">
+              <span data-counter>01</span> / {pad(images.length - 1)}
+            </span>
+          )}
+        </div>
+        {
+          images.length > 1 && (
+            <ul class="thumbs" aria-label="Photos du produit">
+              {images.map((img, i) => (
+                <li>
+                  <button type="button" data-thumb={i} aria-pressed={i === 0 ? 'true' : 'false'} aria-label={`Photo ${i + 1}`}>
+                    <Image src={img} alt="" width={120} height={120} densities={[1, 2]} fit="contain" background="#ffffff" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+
+      <!-- Buying / booking -->
+      <div class="lg:col-span-5">
+        <div class="buy lg:sticky lg:top-24">
+          <p class="kind hud-text">
+            <Square color={rent ? ACTIVITIES.location.color : 'var(--color-ink)'} />
+            {rent ? 'Location' : 'Vente'}
+            {filter && `, ${filter.label}`}
+          </p>
+          {
+            modes && (
+              <nav class="mode-switch" aria-label="Acheter ou louer ce produit">
+                {modes.map((m) =>
+                  m.href ? (
+                    <a href={m.href} class="mode">
+                      <span class="mode-label">{m.label}</span>
+                      <span class="mode-price hud-text">{m.price}</span>
+                    </a>
+                  ) : (
+                    <span class={`mode is-on is-${m.kind}`} aria-current="page">
+                      <span class="mode-label">{m.label}</span>
+                      <span class="mode-price hud-text">{m.price}</span>
+                    </span>
+                  ),
+                )}
+              </nav>
+            )
+          }
+          <h1 id="product-title" class="display mt-3 text-[clamp(1.8rem,3vw,2.6rem)]">{product.name}</h1>
+          {product.summary && <p class="mt-4 leading-relaxed text-ink-soft">{product.summary}</p>}
+
+          <div class="price">
+            {rent && <span class="from">À partir de</span>}
+            <strong>
+              {formatPrice(product.priceTTC)} TTC{rent && <span class="unit"> / jour</span>}
+            </strong>
+            <span class="ht">soit {formatPrice(product.priceHT)} HT</span>
+            {rent && (
+              <a href="#tarifs" class="degressive">
+                Tarif dégressif : jusqu’à −{Math.round(RENTAL_TIERS[RENTAL_TIERS.length - 1].discount * 100)} % par jour <span aria-hidden="true">↓</span>
+              </a>
+            )}
+          </div>
+
+          {
+            rose && (
+              <p class="rose" data-rose-until={OCTOBRE_ROSE.until}>
+                <span class="rose-amount">{OCTOBRE_ROSE.amount}</span>
+                <span>
+                  <b>{OCTOBRE_ROSE.label}</b> : {OCTOBRE_ROSE.amount} {OCTOBRE_ROSE.text}
+                </span>
+              </p>
+            )
+          }
+
+          {
+            rent ? (
+              <form id="reservation" class="booking scroll-mt-24" action={SITE.contactPath} method="get" data-booking data-day={product.priceTTC} data-tiers={JSON.stringify(RENTAL_TIERS.map((t) => [t.from, t.to === Infinity ? 999 : t.to, t.discount]))}>
+                <input type="hidden" name="location" value={product.slug} />
+                <div class="quick" role="group" aria-label="Durées courantes">
+                  <button type="button" data-days="1">1 jour</button>
+                  <button type="button" data-days="2" data-weekend>Week-end</button>
+                  <button type="button" data-days="7">1 semaine</button>
+                </div>
+                <div class="dates">
+                  <label>
+                    <span>Du</span>
+                    <input type="date" name="du" min={today} required />
+                  </label>
+                  <label>
+                    <span>Au</span>
+                    <input type="date" name="au" min={today} required />
+                  </label>
+                </div>
+                <p class="estimate" aria-live="polite" data-estimate>
+                  Choisissez vos dates pour une estimation.
+                </p>
+                <button type="submit" class="submit" data-main-cta>
+                  Demander la réservation
+                </button>
+                <p class="note">Nous confirmons la disponibilité et votre niveau de pilotage, puis vous envoyons le lien de paiement et la caution.</p>
+              </form>
+            ) : (
+              <div class="actions">
+                <div class="qty-pick">
+                  <label for="qty" class="sr-only">
+                    Quantité
+                  </label>
+                  <button type="button" data-step="-1" aria-label="Un de moins">
+                    −
+                  </button>
+                  <input id="qty" type="number" inputmode="numeric" min="1" max="20" value="1" data-qty />
+                  <button type="button" data-step="1" aria-label="Un de plus">
+                    +
+                  </button>
+                </div>
+                <button type="button" class="add" data-main-cta data-cart-add data-cart-item={cart} data-cart-suggest={cartSuggest} data-cart-qty="[data-qty]" data-cart-source="[data-shot][data-active]">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6" />
+                    <rect x="3" y="6" width="18" height="14" rx="2" />
+                    <path d="M3 12h18M8 10.5v3M16 10.5v3" />
+                  </svg>
+                  Ajouter au panier
+                </button>
+                <Button href={SITE.phoneHref} variant="outline" class="advice-call">
+                  Un conseil ? {SITE.phone}
+                </Button>
+                <p class="note">Paiement en ligne bientôt disponible : vous validez votre panier, nous vous recontactons pour finaliser la commande.</p>
+              </div>
+            )
+          }
+
+          {
+            page.docs && (
+              <ul class="links">
+                {page.docs?.spec && (
+                  <li>
+                    <a href={page.docs.spec} target="_blank" rel="noopener">
+                      Fiche technique
+                    </a>
+                  </li>
+                )}
+                {page.docs?.manual && (
+                  <li>
+                    <a href={page.docs.manual} target="_blank" rel="noopener">
+                      Manuel utilisateur{page.docs.manual.endsWith('.pdf') && ' (PDF)'}
+                    </a>
+                  </li>
+                )}
+              </ul>
+            )
+          }
+
+          {
+            crossSell.length > 0 && (
+              <div class="cross">
+                <p class="cross-title">Complétez votre équipement</p>
+                <ul>
+                  {crossSell.map(({ p, photo }) => (
+                    <li>
+                      <a href={productUrl(p)} class="cross-item">
+                        {photo && <img src={photo.src} srcset={photo.srcset} sizes="56px" alt="" width="56" height="56" loading="lazy" />}
+                        <span class="cross-name">{p.name}</span>
+                        <span class="cross-price">{formatPrice(p.priceTTC)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
+
+          <ul class="assurances">
+            {[
+              rent ? ['Vérifié', 'avant chaque location'] : ['Conseil', 'de télépilotes pros'],
+              rent ? ['Prise en main', 'expliquée au retrait'] : ['Livraison', 'partout en France'],
+              ['Lyon', 'équipe sur place'],
+            ].map(([a, b]) => (
+              <li>
+                <b>{a}</b>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {rent && <RentalRates base={product.priceTTC} />}
+
+  <ProductStory product={product} page={page} image={images[0]} advice={popAdvice} />
+
+  {
+    details.length > 0 && (
+      <section class="border-t border-line bg-paper section-pad" aria-labelledby="details-title">
+        <div class="wrap grid gap-10 lg:grid-cols-12">
+          <div class="desc-side lg:col-span-4">
+            <h2 id="details-title" class="display text-[clamp(1.8rem,3vw,2.6rem)]" data-reveal>
+              Description
+            </h2>
+            {images[0] && (
+              <div class="desc-card viewfinder" data-reveal style={{ '--i': 1 }}>
+                <Image src={images[0]} alt="" width={360} densities={[1, 2]} />
+                <p class="hud-text">{product.name}</p>
+                <p class="desc-price">
+                  {formatPrice(product.priceTTC)} TTC{rent && ' / jour'}
+                </p>
+              </div>
+            )}
+          </div>
+          <div class="details lg:col-span-7 lg:col-start-6" data-details data-long={details.length > 7 || undefined}>
+            <div class="details-body">
+              {details.map((b, i) => (b.type === 'h' ? <h3 data-reveal style={{ '--i': i % 4 }}>{b.text}</h3> : <p class={b.type === 'li' ? 'li' : undefined} data-reveal style={{ '--i': i % 4 }}>{b.text}</p>))}
+            </div>
+            {details.length > 7 && (
+              <button type="button" class="more" aria-expanded="false" data-more>
+                Lire la suite
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    related.length > 0 && (
+      <section class="border-t border-line bg-paper section-pad" aria-labelledby="related-title">
+        <div class="wrap">
+          <h2 id="related-title" class="display text-[clamp(1.8rem,3vw,2.6rem)]">
+            {rent ? 'À louer aussi' : 'Vous aimerez aussi'}
+          </h2>
+          <ul class="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 lg:grid-cols-4">
+            {related.map((p) => (
+              <li>
+                <ProductCard product={p} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )
+  }
+  <!-- Small screens: price and main action stay at hand once the buy box is scrolled past. -->
+  <div class="bar" data-bar aria-hidden="true">
+    <div class="bar-price">
+      <strong>{formatPrice(product.priceTTC)} TTC{rent && <span class="unit"> / jour</span>}</strong>
+      <span class="hud-text">{rent ? 'Location' : 'Achat'}</span>
+    </div>
+    {
+      rent ? (
+        <a href="#reservation" class="bar-cta is-rent" tabindex="-1">
+          Réserver
+        </a>
+      ) : (
+        <button type="button" class="bar-cta" tabindex="-1" data-cart-add data-cart-item={cart} data-cart-suggest={cartSuggest} data-cart-source="[data-shot][data-active]">
+          Ajouter au panier
+        </button>
+      )
+    }
+  </div>
+</BaseLayout>
+
+<style>
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: var(--color-muted);
+  }
+  .crumbs a:hover {
+    color: var(--color-ink);
+  }
+
+  /* ---------- Gallery ---------- */
+  .stage {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--color-line);
+    cursor: zoom-in;
+  }
+  .shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition:
+      opacity 400ms ease,
+      transform 500ms var(--ease-out-strong);
+  }
+  .shot[data-active] {
+    opacity: 1;
+  }
+  /* Hover zooms towards the pointer (--zx/--zy set by the script). */
+  .stage.is-zoom .shot[data-active] {
+    transform: scale(1.8);
+    transform-origin: var(--zx, 50%) var(--zy, 50%);
+  }
+  .stage {
+    --vf: rgb(0 0 0 / 0.35);
+    --vf-inset: 14px;
+  }
+  .badges {
+    position: absolute;
+    top: 22px;
+    left: 22px;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .badge {
+    padding: 4px 10px;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .badge-rose {
+    background: #e83e8c;
+  }
+  .counter {
+    position: absolute;
+    right: 22px;
+    bottom: 20px;
+    z-index: 4;
+    color: var(--color-muted);
+  }
+  .thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .thumbs button {
+    display: block;
+    width: 76px;
+    height: 76px;
+    padding: 4px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    transition: border-color 200ms ease;
+  }
+  .thumbs button[aria-pressed='true'] {
+    border-color: var(--color-ink);
+    box-shadow: inset 0 -3px 0 var(--color-gold);
+  }
+  .thumbs img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* ---------- Buy box ---------- */
+  .kind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-muted);
+  }
+  /* Buy / rent switch: two positions, the current one lit. */
+  .mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 18px 0 22px;
+    padding: 4px;
+    background: var(--color-mist);
+    border: 1px solid var(--color-line);
+  }
+  .mode {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    color: var(--color-ink-soft);
+    transition: background-color 200ms ease;
+  }
+  .mode-label {
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .mode-price {
+    color: var(--color-muted);
+  }
+  a.mode:hover {
+    background: #fff;
+  }
+  .mode.is-on {
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .mode.is-location {
+    background: var(--color-location);
+  }
+  .mode.is-on .mode-price {
+    color: rgb(255 255 255 / 0.8);
+  }
+  .rose {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #5c1638;
+    background: #fdeaf3;
+    border-left: 3px solid #e83e8c;
+  }
+  .rose-amount {
+    flex-shrink: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    font-stretch: 120%;
+    color: #e83e8c;
+  }
+  .quick {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .quick button {
+    flex: 1;
+    min-height: 40px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    transition:
+      border-color 200ms ease,
+      background-color 200ms ease;
+  }
+  .quick button:hover {
+    border-color: var(--color-location);
+  }
+  .quick button[aria-pressed='true'] {
+    color: #fff;
+    background: var(--color-location);
+    border-color: var(--color-location);
+  }
+  .price {
+    display: flex;
+    flex-direction: column;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-line);
+  }
+  .price strong {
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    font-weight: 800;
+    font-stretch: 118%;
+    letter-spacing: -0.02em;
+  }
+  .unit {
+    font-size: 0.55em;
+    font-weight: 600;
+  }
+  .from,
+  .ht {
+    color: var(--color-muted);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .qty-pick {
+    display: inline-flex;
+    align-items: center;
+    height: 48px;
+    border: 1px solid rgb(0 0 0 / 0.25);
+  }
+  .qty-pick button {
+    width: 40px;
+    height: 100%;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  .qty-pick button:hover {
+    background: var(--color-mist);
+  }
+  .qty-pick input {
+    width: 36px;
+    height: 100%;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .qty-pick input::-webkit-inner-spin-button,
+  .qty-pick input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
+  .add {
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 24px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--color-ink);
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      transform 150ms ease-out;
+  }
+  .add svg {
+    width: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linejoin: round;
+  }
+  .add:hover {
+    background: var(--color-ink-soft);
+  }
+  .add:active {
+    transform: scale(0.97);
+  }
+  .add[aria-busy='true'] {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .actions :global(.advice-call) {
+    width: 100%;
+  }
+  .note {
+    margin-top: 10px;
+    width: 100%;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-muted);
+  }
+  .booking {
+    margin-top: 24px;
+  }
+  .dates {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .dates label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .dates input {
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--color-line);
+    font: inherit;
+    font-size: 16px;
+    background: #fff;
+  }
+  .dates input:focus-visible {
+    border-color: var(--color-ink);
+  }
+  .estimate {
+    margin-top: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    background: var(--color-mist);
+    color: var(--color-ink-soft);
+  }
+  .submit {
+    width: 100%;
+    min-height: 52px;
+    margin-top: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--color-location);
+    transition:
+      filter 200ms ease,
+      transform 150ms ease-out;
+  }
+  .submit:active {
+    transform: scale(0.98);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .submit:hover {
+      filter: brightness(1.08);
+    }
+  }
+  .links {
+    display: grid;
+    gap: 8px;
+    margin-top: 22px;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-line);
+    text-underline-offset: 4px;
+    transition: text-decoration-color 200ms ease;
+  }
+  .links a::after {
+    content: '↗';
+    font-size: 0.85em;
+    color: var(--color-muted);
+  }
+  .links .link-strong {
+    color: var(--color-location);
+  }
+  .links .link-strong::after {
+    content: '';
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .links a:hover {
+      text-decoration-color: currentColor;
+    }
+  }
+  .cross {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-line);
+  }
+  .cross-title {
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .cross ul {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .cross-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 10px 6px 6px;
+    border: 1px solid var(--color-line);
+    transition: border-color 200ms ease;
+  }
+  .cross-item img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+  }
+  .cross-name {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .cross-price {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .cross-item:hover {
+      border-color: var(--color-ink);
+    }
+  }
+  .assurances {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 24px;
+  }
+  .assurances li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--color-muted);
+    background: var(--color-mist);
+    border-top: 2px solid var(--color-gold);
+  }
+  .assurances b {
+    font-size: 14px;
+    color: var(--color-ink);
+  }
+
+  /* ---------- Sticky bar (small screens) ---------- */
+  .bar {
+    display: none;
+  }
+  @media (max-width: 1023px) {
+    .bar {
+      position: fixed;
+      inset: auto 0 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 96px 10px 16px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      background: rgb(255 255 255 / 0.94);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--color-line);
+      transform: translateY(110%);
+      transition: transform 350ms var(--ease-out-strong);
+    }
+    .bar.is-shown {
+      transform: none;
+    }
+    .bar-price {
+      display: flex;
+      flex-direction: column;
+    }
+    .bar-price strong {
+      font-size: 18px;
+      font-weight: 800;
+    }
+    .bar-price .hud-text {
+      color: var(--color-muted);
+    }
+    .bar-cta {
+      padding: 12px 18px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--color-ink);
+    }
+    .bar-cta.is-rent {
+      background: var(--color-location);
+    }
+  }
+
+  .degressive {
+    align-self: flex-start;
+    margin-top: 10px;
+    padding: 5px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-location);
+    background: color-mix(in srgb, var(--color-location) 10%, white);
+  }
+  .degressive:hover {
+    background: color-mix(in srgb, var(--color-location) 18%, white);
+  }
+
+  /* ---------- Description ---------- */
+  .desc-side {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  @media (min-width: 1024px) {
+    .desc-side {
+      position: sticky;
+      top: 96px;
+      align-self: start;
+    }
+  }
+  .desc-card {
+    --vf: rgb(0 0 0 / 0.3);
+    --vf-inset: 10px;
+    max-width: 360px;
+    padding: 18px 22px 22px;
+    background: #fff;
+    border: 1px solid var(--color-line);
+  }
+  .desc-card img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+  }
+  .desc-card .hud-text {
+    margin-top: 10px;
+    color: var(--color-muted);
+  }
+  .desc-price {
+    margin-top: 4px;
+    font-size: 1.3rem;
+    font-weight: 800;
+    font-stretch: 118%;
+  }
+  .details-body {
+    display: grid;
+    gap: 14px;
+  }
+  /* Long descriptions are folded, with a fade, until "Lire la suite". */
+  .details[data-long] .details-body {
+    max-height: 560px;
+    overflow: hidden;
+    mask-image: linear-gradient(#000 70%, transparent);
+    transition: max-height 700ms var(--ease-out-strong);
+  }
+  .details[data-long].is-open .details-body {
+    max-height: none;
+    mask-image: none;
+  }
+  .more {
+    margin-top: 16px;
+    padding: 10px 16px;
+    font-weight: 700;
+    border: 1px solid var(--color-ink);
+  }
+  .more:hover {
+    color: #fff;
+    background: var(--color-ink);
+  }
+
+  /* ---------- Details ---------- */
+  .details {
+    max-width: 70ch;
+    line-height: 1.65;
+    color: var(--color-ink-soft);
+  }
+  .details h3 {
+    margin-top: 16px;
+    padding-left: 14px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    color: var(--color-ink);
+    border-left: 3px solid var(--color-gold);
+  }
+  .details .li {
+    padding: 10px 14px 10px 32px !important;
+    background: var(--color-mist);
+  }
+  .details .li::before {
+    left: 14px !important;
+    top: 1.25em !important;
+  }
+  .details .li {
+    position: relative;
+    padding-left: 18px;
+  }
+  .details .li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 6px;
+    height: 6px;
+    background: var(--color-gold);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shot {
+      transition: opacity 200ms ease;
+    }
+    .stage.is-zoom .shot[data-active] {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  // Gallery: thumbnails switch the photo; hovering the photo zooms towards the pointer.
+  document.querySelectorAll<HTMLElement>('[data-gallery]').forEach((gallery) => {
+    const stage = gallery.querySelector<HTMLElement>('.stage')!;
+    const shots = [...gallery.querySelectorAll<HTMLElement>('[data-shot]')];
+    const thumbs = [...gallery.querySelectorAll<HTMLButtonElement>('[data-thumb]')];
+    thumbs.forEach((t) =>
+      t.addEventListener('click', () => {
+        const i = Number(t.dataset.thumb);
+        shots.forEach((s, k) => s.toggleAttribute('data-active', k === i));
+        thumbs.forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
+        const counter = gallery.querySelector('[data-counter]');
+        if (counter) counter.textContent = String(i + 1).padStart(2, '0');
+      }),
+    );
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      stage.addEventListener('pointerenter', () => stage.classList.add('is-zoom'));
+      stage.addEventListener('pointerleave', () => stage.classList.remove('is-zoom'));
+      stage.addEventListener('pointermove', (e) => {
+        const r = stage.getBoundingClientRect();
+        stage.style.setProperty('--zx', `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+        stage.style.setProperty('--zy', `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+      });
+    }
+  });
+
+  // Rental: estimate from the dates (days × daily rate; the team confirms the final quote).
+  document.querySelectorAll<HTMLFormElement>('[data-booking]').forEach((form) => {
+    const day = Number(form.dataset.day);
+    const from = form.elements.namedItem('du') as HTMLInputElement;
+    const to = form.elements.namedItem('au') as HTMLInputElement;
+    const out = form.querySelector<HTMLElement>('[data-estimate]')!;
+    const fmt = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+    const update = () => {
+      if (from.value) to.min = from.value;
+      if (!from.value || !to.value) return;
+      const days = Math.round((Date.parse(to.value) - Date.parse(from.value)) / 86400000) + 1;
+      if (days < 1) {
+        out.textContent = 'La date de fin doit suivre la date de début.';
+        return;
+      }
+      // Daily rate of the matching tier (data/catalog.ts, RENTAL_TIERS).
+      const tiers: [number, number, number][] = JSON.parse(form.dataset.tiers ?? '[]');
+      const off = tiers.find(([a, b]) => days >= a && days <= b)?.[2] ?? 0;
+      const rate = Math.round(day * (1 - off) * 100) / 100;
+      out.textContent = `${days} jour${days > 1 ? 's' : ''} × ${fmt.format(rate)}${off ? ` (−${Math.round(off * 100)} %)` : ''} : environ ${fmt.format(rate * days)} TTC, hors caution. Le devis final vous est confirmé par l’équipe.`;
+    };
+    const quick = [...form.querySelectorAll<HTMLButtonElement>('[data-days]')];
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const mark = (btn?: HTMLButtonElement) => quick.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    quick.forEach((b) =>
+      b.addEventListener('click', () => {
+        // From the chosen start date (or tomorrow); the weekend starts on the next Saturday.
+        const start = from.value ? new Date(`${from.value}T12:00`) : new Date(Date.now() + 86400000);
+        if (b.dataset.weekend !== undefined) start.setDate(start.getDate() + ((6 - start.getDay() + 7) % 7));
+        const end = new Date(start);
+        end.setDate(end.getDate() + Number(b.dataset.days) - 1);
+        from.value = iso(start);
+        to.value = iso(end);
+        mark(b);
+        update();
+      }),
+    );
+    from.addEventListener('change', () => (mark(), update()));
+    to.addEventListener('change', () => (mark(), update()));
+  });
+
+  // Description: unfold.
+  document.querySelectorAll<HTMLElement>('[data-details]').forEach((d) => {
+    const btn = d.querySelector<HTMLButtonElement>('[data-more]');
+    btn?.addEventListener('click', () => {
+      const open = d.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', String(open));
+      btn.textContent = open ? 'Réduire' : 'Lire la suite';
+    });
+  });
+
+  // Octobre Rose ends by itself after its last day.
+  document.querySelectorAll<HTMLElement>('[data-rose-until]').forEach((el) => {
+    if (Date.now() > new Date(`${el.dataset.roseUntil}T23:59:59`).getTime()) el.remove();
+  });
+
+  // Quantity: − / + around the field, kept between 1 and 20.
+  document.querySelectorAll<HTMLElement>('.qty-pick').forEach((box) => {
+    const input = box.querySelector<HTMLInputElement>('input')!;
+    const clamp = () => (input.value = String(Math.max(1, Math.min(20, Math.round(Number(input.value) || 1)))));
+    box.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) =>
+      b.addEventListener('click', () => {
+        input.value = String(Number(input.value) + Number(b.dataset.step));
+        clamp();
+      }),
+    );
+    input.addEventListener('change', clamp);
+  });
+
+  // Small screens: the bar shows once the main button has scrolled out of view.
+  const bar = document.querySelector<HTMLElement>('[data-bar]');
+  const cta = document.querySelector<HTMLElement>('[data-main-cta]');
+  if (bar && cta) {
+    new IntersectionObserver(([e]) => bar.classList.toggle('is-shown', !e.isIntersecting && e.boundingClientRect.top < 0)).observe(cta);
+  }
+</script>

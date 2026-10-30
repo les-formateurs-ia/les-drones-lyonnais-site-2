@@ -1,0 +1,610 @@
+---
+// Service page hero: the service seen on the drone's video feed.
+// - Technique: a scan line sweeps the photo and shows it through the service's sensor
+//   (thermal, survey, low light, detection boxes…), with flight readouts.
+// - Artistique: the frame opens to cinema letterbox, film grain, REC and a running
+//   timecode (EN DIRECT for live streaming, LOG / REC.709 split for post-production).
+// Below the title, the three key points as a telemetry bar.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Button from '../ui/Button.astro';
+import { FAMILIES, SENSOR_LABEL, type Service } from '../../data/services';
+import type { ServicePage } from '../../data/service-pages';
+import { ACTIVITIES, SITE } from '../../data/site';
+
+interface Props {
+  service: Service;
+  page: ServicePage;
+  photo: ImageMetadata;
+}
+const { service, page, photo } = Astro.props;
+const tech = service.family === 'technique';
+const s = service.sensor;
+// The sensor layer only exists for the technical services (and the grade split).
+const filter = { thermal: 'thermal', survey: 'survey', mesh: 'survey', lowlight: 'night', detect: 'detect', timelapse: null, cine: null, live: null, grade: 'log' }[s];
+const contact = `${SITE.contactPath}?prestation=${page.slug}`;
+---
+
+<section class="s-hero" data-family={service.family} data-sensor={s} aria-labelledby="service-title">
+  <div class="feed viewfinder" aria-hidden="true">
+    <Image src={photo} alt="" widths={[640, 960, 1280, 1920]} sizes="100vw" class="shot" loading="eager" fetchpriority="high" />
+    {filter && <Image src={photo} alt="" widths={[640, 960, 1280, 1920]} sizes="100vw" class={`shot sensor is-${filter}`} loading="eager" />}
+    {filter && filter !== 'log' && <span class="scan" />}
+    {(s === 'survey' || s === 'mesh') && <span class="grid" />}
+    {
+      s === 'detect' && (
+        <>
+          <span class="box b1">
+            <i>Zone 01</i>
+          </span>
+          <span class="box b2">
+            <i>Zone 02</i>
+          </span>
+        </>
+      )
+    }
+    {!tech && <span class="grain" />}
+    {!tech && <span class="bars" />}
+    <span class="cross" />
+
+    <div class="hud hud-text">
+      <span class="hud-l">
+        {
+          tech ? (
+            <>
+              <b class="mode">{SENSOR_LABEL[s]}</b>
+              <span>45.7640° N · 4.8357° E</span>
+            </>
+          ) : s === 'live' ? (
+            <>
+              <b class="rec is-live">● En direct</b>
+              <span>CAM 1</span>
+            </>
+          ) : (
+            <>
+              <b class="rec">● REC</b>
+              <span data-tc>00:00:00:00</span>
+            </>
+          )
+        }
+      </span>
+      <span class="hud-r">
+        {tech ? <span>ALT 60 m · VIT 4 m/s</span> : s === 'grade' ? <span>LOG ▸ REC.709</span> : <span>4K · 24 IPS · 1/50</span>}
+        <span class="batt">
+          <i />
+          87 %
+        </span>
+      </span>
+    </div>
+  </div>
+
+  <div class="wrap body">
+    <nav aria-label="Fil d’Ariane" class="crumbs hud-text">
+      <a href="/">Accueil</a>
+      <span aria-hidden="true">/</span>
+      <a href={ACTIVITIES.prestations.href}>Prestations</a>
+      <span aria-hidden="true">/</span>
+      <a href={`${ACTIVITIES.prestations.href}${tech ? '' : '?famille=artistique'}#${service.family}`}>{FAMILIES[service.family].title}</a>
+    </nav>
+    <p class="kicker hud-text">{page.hero.kicker}</p>
+    <h1 id="service-title" class="display">{page.hero.title}</h1>
+    <p class="hook">{page.hero.hook}</p>
+    {page.hero.intro && <p class="intro">{page.hero.intro}</p>}
+    <div class="ctas">
+      <Button href={contact} variant="gold">Demander un devis</Button>
+      <Button href="#deroule" variant="outline-light">Voir le déroulé <span aria-hidden="true">↓</span></Button>
+    </div>
+  </div>
+
+  <ul class="telemetry wrap">
+    {
+      page.hero.highlights.map((h, i) => (
+        <li style={{ '--k': i }}>
+          <span class="t-num hud-text">{String(i + 1).padStart(2, '0')}</span>
+          <b>{h.title}</b>
+          {h.text && <span class="t-text">{h.text}</span>}
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<!-- Sensor looks, as SVG filters (CSS filters cannot remap colours). -->
+<svg width="0" height="0" class="filters" aria-hidden="true" focusable="false">
+  <filter id="ldl-thermal" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0" />
+    <feComponentTransfer>
+      <feFuncR type="table" tableValues="0.05 0.35 0.85 1 1" />
+      <feFuncG type="table" tableValues="0 0 0.25 0.7 1" />
+      <feFuncB type="table" tableValues="0.25 0.55 0.2 0 0.7" />
+    </feComponentTransfer>
+  </filter>
+  <filter id="ldl-survey" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0" />
+    <feComponentTransfer>
+      <feFuncR type="table" tableValues="0.02 0.25 0.75" />
+      <feFuncG type="table" tableValues="0.06 0.4 0.9" />
+      <feFuncB type="table" tableValues="0.22 0.7 1" />
+    </feComponentTransfer>
+  </filter>
+  <filter id="ldl-night" color-interpolation-filters="sRGB">
+    <feColorMatrix type="saturate" values="0" />
+    <feComponentTransfer>
+      <feFuncR type="table" tableValues="0 0.15 0.55" />
+      <feFuncG type="table" tableValues="0.04 0.75 1" />
+      <feFuncB type="table" tableValues="0 0.2 0.5" />
+    </feComponentTransfer>
+  </filter>
+</svg>
+
+<style>
+  @property --scan {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 100%;
+  }
+  @property --bar {
+    syntax: '<length-percentage>';
+    inherits: false;
+    initial-value: 0px;
+  }
+  .s-hero {
+    --hl: var(--color-gold);
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: calc(100svh - 72px);
+    overflow: hidden;
+    color: #fff;
+    background: #050608;
+  }
+  .s-hero[data-family='technique'] {
+    --hl: #6f8dff;
+  }
+  .filters {
+    position: absolute;
+  }
+
+  /* ---------- The feed ---------- */
+  .feed {
+    --vf-inset: clamp(12px, 2vw, 24px);
+    --vf-size: 28px;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+  }
+  .feed::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+      linear-gradient(to top, rgb(0 0 0 / 0.92) 0%, rgb(0 0 0 / 0.55) 42%, rgb(0 0 0 / 0.15) 70%, rgb(0 0 0 / 0.45) 100%),
+      linear-gradient(to right, rgb(0 0 0 / 0.55), transparent 65%);
+  }
+  .feed :global(.shot) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .feed :global(.sensor) {
+    clip-path: inset(0 0 0 var(--scan));
+  }
+  .feed :global(.is-thermal) {
+    filter: url(#ldl-thermal) contrast(1.15);
+  }
+  .feed :global(.is-survey) {
+    filter: url(#ldl-survey) contrast(1.3);
+  }
+  .feed :global(.is-night) {
+    filter: url(#ldl-night) brightness(1.25) contrast(1.1);
+  }
+  .feed :global(.is-detect) {
+    filter: saturate(0.4) contrast(1.15) brightness(1.05);
+  }
+  /* Post-production: the left part is the flat LOG image, the right the graded one. */
+  .feed :global(.is-log) {
+    clip-path: inset(0 calc(100% - var(--scan)) 0 0);
+    filter: saturate(0.35) contrast(0.7) brightness(1.15);
+  }
+  .scan {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--scan);
+    z-index: 1;
+    width: 2px;
+    background: var(--hl);
+    box-shadow:
+      0 0 24px 4px color-mix(in srgb, var(--hl) 60%, transparent),
+      -80px 0 120px -40px color-mix(in srgb, var(--hl) 40%, transparent);
+  }
+  .grid {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    clip-path: inset(0 0 0 var(--scan));
+    background:
+      linear-gradient(rgb(160 190 255 / 0.18) 1px, transparent 1px) 0 0 / 64px 64px,
+      linear-gradient(90deg, rgb(160 190 255 / 0.18) 1px, transparent 1px) 0 0 / 64px 64px;
+  }
+  .box {
+    position: absolute;
+    z-index: 1;
+    border: 1.5px solid #ffcc33;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+  }
+  .box i {
+    position: absolute;
+    top: -22px;
+    left: -1.5px;
+    padding: 2px 6px;
+    font: 600 11px/1.4 var(--font-sans);
+    font-style: normal;
+    font-stretch: 75%;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #000;
+    background: #ffcc33;
+  }
+  .b1 {
+    top: 22%;
+    left: 58%;
+    width: 13%;
+    height: 17%;
+  }
+  .b2 {
+    top: 44%;
+    left: 76%;
+    width: 9%;
+    height: 12%;
+  }
+  .cross {
+    position: absolute;
+    top: 40%;
+    left: 72%;
+    z-index: 3;
+    width: 44px;
+    height: 44px;
+    translate: -50% -50%;
+    opacity: 0.55;
+    background:
+      linear-gradient(#fff, #fff) center / 1px 100% no-repeat,
+      linear-gradient(#fff, #fff) center / 100% 1px no-repeat;
+    mask: radial-gradient(circle, transparent 5px, #000 6px);
+  }
+  /* Film grain. */
+  .grain {
+    position: absolute;
+    inset: -50%;
+    z-index: 2;
+    opacity: 0.12;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  /* Letterbox: two black bars framing a 2.39:1 picture. */
+  .bars {
+    --bar: min(13%, max(0px, calc((100% - 100vw / 2.39) / 2)));
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+      linear-gradient(#000, #000) top / 100% var(--bar) no-repeat,
+      linear-gradient(#000, #000) bottom / 100% var(--bar) no-repeat;
+    pointer-events: none;
+  }
+
+  .hud {
+    position: absolute;
+    top: calc(var(--vf-inset) + 14px);
+    right: calc(var(--vf-inset) + 18px);
+    left: calc(var(--vf-inset) + 18px);
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.85);
+  }
+  .hud-l,
+  .hud-r {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+  }
+  .hud-r {
+    justify-content: flex-end;
+  }
+  .mode {
+    padding: 3px 8px;
+    color: #000;
+    background: var(--hl);
+  }
+  .rec {
+    color: #ff3b30;
+  }
+  .rec.is-live {
+    padding: 3px 8px;
+    color: #fff;
+    background: #e0251b;
+  }
+  .batt {
+    display: inline-flex;
+    white-space: nowrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .batt i {
+    position: relative;
+    width: 22px;
+    height: 11px;
+    border: 1.5px solid currentColor;
+    background: linear-gradient(currentColor, currentColor) 1px 50% / 80% 5px no-repeat;
+  }
+  .batt i::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: -4px;
+    width: 2px;
+    height: 4px;
+    background: currentColor;
+  }
+
+  /* ---------- Copy ---------- */
+  .body {
+    position: relative;
+    padding-top: 120px;
+  }
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .crumbs a:hover {
+    color: #fff;
+  }
+  .kicker {
+    margin-top: 22px;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+  h1 {
+    margin-top: 12px;
+    max-width: 17ch;
+    font-size: clamp(2.4rem, min(5.6vw, 8.5vh), 5rem);
+  }
+  .hook {
+    margin-top: 20px;
+    max-width: 40ch;
+    font-size: clamp(1.15rem, 1.7vw, 1.4rem);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .intro {
+    margin-top: 10px;
+    max-width: 56ch;
+    line-height: 1.6;
+    color: rgb(255 255 255 / 0.75);
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  /* ---------- Telemetry bar ---------- */
+  .telemetry {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: clamp(32px, 6vh, 64px);
+    margin-bottom: clamp(16px, 3vh, 32px);
+    border-top: 1px solid rgb(255 255 255 / 0.18);
+  }
+  .telemetry li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
+    align-content: start;
+    padding: 18px 20px 4px 0;
+  }
+  .telemetry li + li {
+    padding-left: 20px;
+    border-left: 1px solid rgb(255 255 255 / 0.12);
+  }
+  .t-num {
+    grid-row: span 2;
+    color: var(--hl);
+  }
+  .telemetry b {
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .t-text {
+    font-size: 14px;
+    line-height: 1.45;
+    color: rgb(255 255 255 / 0.62);
+  }
+  @media (max-height: 960px) {
+    .intro {
+      display: none;
+    }
+    .body {
+      padding-top: 100px;
+    }
+  }
+  @media (max-width: 767px) {
+    .body {
+      padding-top: 96px;
+    }
+    .intro {
+      display: none;
+    }
+    .telemetry {
+      grid-template-columns: 1fr;
+    }
+    .telemetry li,
+    .telemetry li + li {
+      padding: 10px 0 0;
+      border-left: 0;
+    }
+    .t-text {
+      display: none;
+    }
+    .hud-r > span:first-child,
+    .cross {
+      display: none;
+    }
+  }
+  @media (max-width: 767px) and (max-height: 700px) {
+    .crumbs,
+    .telemetry {
+      display: none;
+    }
+    .body {
+      padding-top: 72px;
+      padding-bottom: 24px;
+    }
+    .hook {
+      margin-top: 12px;
+      font-size: 1.05rem;
+    }
+    .ctas {
+      margin-top: 18px;
+    }
+  }
+
+  /* ---------- Motion ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .feed :global(.shot) {
+      animation: push 18s ease-out both;
+    }
+    .s-hero[data-family='technique'] {
+      animation: scan 6s cubic-bezier(0.6, 0, 0.4, 1) 300ms infinite alternate both;
+    }
+    .s-hero[data-sensor='grade'] {
+      animation: scan 7s cubic-bezier(0.6, 0, 0.4, 1) 400ms infinite alternate both;
+    }
+    .bars {
+      animation: open 1400ms cubic-bezier(0.7, 0, 0.2, 1) 200ms both;
+    }
+    .grain {
+      animation: grain 600ms steps(4) infinite;
+    }
+    .rec:not(.is-live) {
+      animation: blink 1.2s steps(1) infinite;
+    }
+    .box {
+      animation: lock 3s ease-out infinite;
+    }
+    .b2 {
+      animation-delay: 1.2s;
+    }
+    .body > * {
+      animation: rise 900ms var(--ease-out-strong) both;
+    }
+    .body > :nth-child(2) {
+      animation-delay: 80ms;
+    }
+    .body > :nth-child(3) {
+      animation-delay: 140ms;
+    }
+    .body > :nth-child(4) {
+      animation-delay: 220ms;
+    }
+    .body > :nth-child(5) {
+      animation-delay: 280ms;
+    }
+    .body > :nth-child(6) {
+      animation-delay: 340ms;
+    }
+    .telemetry li {
+      animation: rise 900ms var(--ease-out-strong) calc(450ms + var(--k) * 90ms) both;
+    }
+  }
+  @keyframes push {
+    from {
+      transform: scale(1.08);
+    }
+  }
+  @keyframes scan {
+    0% {
+      --scan: 100%;
+    }
+    100% {
+      --scan: 30%;
+    }
+  }
+  @keyframes open {
+    from {
+      --bar: 50%;
+    }
+  }
+  @keyframes grain {
+    25% {
+      transform: translate(-6%, 4%);
+    }
+    50% {
+      transform: translate(5%, -7%);
+    }
+    75% {
+      transform: translate(-3%, -4%);
+    }
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.2;
+    }
+  }
+  @keyframes lock {
+    0%,
+    100% {
+      scale: 1;
+      opacity: 1;
+    }
+    8% {
+      scale: 1.15;
+      opacity: 0.4;
+    }
+    16% {
+      scale: 1;
+      opacity: 1;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(22px);
+    }
+  }
+  /* Without motion, the sensor shows on the right part of the picture. */
+  @media (prefers-reduced-motion: reduce) {
+    .s-hero {
+      --scan: 55%;
+    }
+  }
+</style>
+
+<script>
+  // Running timecode of the artistic feed (hh:mm:ss:frames, 24 fps).
+  const tc = document.querySelector<HTMLElement>('[data-tc]');
+  if (tc && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const t0 = performance.now();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const tick = (now: number) => {
+      const f = Math.floor(((now - t0) / 1000) * 24);
+      const s = Math.floor(f / 24);
+      tc.textContent = `00:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}:${p(f % 24)}`;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+</script>

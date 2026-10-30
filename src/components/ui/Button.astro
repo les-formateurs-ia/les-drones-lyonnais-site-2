@@ -1,0 +1,32 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends Omit<HTMLAttributes<'a'>, 'class'> {
+  href: string;
+  variant?: 'ink' | 'gold' | 'outline' | 'outline-light';
+  size?: 'md' | 'sm';
+  class?: string;
+}
+const { href, variant = 'ink', size = 'md', class: className, ...rest } = Astro.props;
+
+const variants = {
+  ink: 'bg-ink text-white hover-fine:bg-ink-soft',
+  gold: 'bg-gold text-ink hover-fine:bg-[#c29a5f]',
+  outline: 'border border-ink/25 text-ink hover-fine:border-ink',
+  'outline-light': 'border border-white/35 text-white hover-fine:border-white',
+};
+---
+
+<a
+  href={href}
+  {...rest}
+  class:list={[
+    'inline-flex items-center justify-center gap-2 text-[15px] font-semibold whitespace-nowrap',
+    size === 'md' ? 'min-h-12 px-6' : 'min-h-11 px-5',
+    'transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.97]',
+    variants[variant],
+    className,
+  ]}
+>
+  <slot />
+</a>

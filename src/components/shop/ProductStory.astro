@@ -1,0 +1,847 @@
+---
+// The product's story, from the team's pages on the current site, told visually:
+// - "Découvrez le": the product on a lit pedestal (viewfinder, slow float) and its key
+//   figures as gauges whose numbers count up;
+// - Pop's advice (PopAdvice), right after "Découvrez le";
+// - "Ce qu'il faut savoir": a bento of feature cards (the first one large and dark), a light
+//   following the pointer;
+// - "Pour qui ?": audience cards that turn ink on hover;
+// - "Quel permis ?": the drone class in a ring, what it allows as a checklist, and the
+//   path to the certificate as steps, Pop holding the licence over it.
+// Each section only shows when the product has that content. Animations fire once on
+// reveal (lib/reveal.ts); with reduced motion everything is shown as it is.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Button from '../ui/Button.astro';
+import Square from '../ui/Square.astro';
+import PopAdvice from './PopAdvice.astro';
+import type { PopPose } from '../ui/PopTip.astro';
+import type { Product, ProductPage } from '../../data/catalog';
+import { featureIcon } from '../../lib/feature-icon';
+import { ACTIVITIES, SITE } from '../../data/site';
+
+interface Props {
+  product: Product;
+  page: ProductPage;
+  /** Pop's advice on this product, its own section after "Découvrez le". */
+  advice?: { title: string; messages: string[]; chips: string[]; pose: ImageMetadata };
+  /** Main photo of the product, shown in "Découvrez le". */
+  image?: ImageMetadata;
+}
+const { product, page, advice, image } = Astro.props;
+const popPoses = import.meta.glob<{ default: ImageMetadata }>('../../assets/pop/*.webp', { eager: true });
+// "DJI Mavic 4 PRO" → "Mavic 4 PRO" for the advice heading.
+const shortName = product.name.replace(/^DJI\s+/i, '').split(/\s[–-]\s|,/)[0];
+const { discover, know, forWho, permis } = page;
+const knowCards = know?.some((k) => k.title);
+const accent = product.kind === 'location' ? ACTIVITIES.location.color : 'var(--color-gold)';
+const pad = (i: number) => String(i + 1).padStart(2, '0');
+
+// "51 MIN" → counts up to 51, then shows " MIN"; non-numeric values are shown as they are.
+const stat = (value: string) => {
+  const m = value.match(/^(\d+(?:[.,]\d+)?)(.*)$/);
+  return m ? { num: m[1], rest: m[2] } : null;
+};
+
+// "OPEN" + "ARTISTIQUE" → the matching training on /formations-drone-a-lyon/.
+const formationHref = (f?: { level: string; family: string }) => {
+  if (!f) return '/formations-drone-a-lyon/';
+  const spec = /SP[EÉ]CIFIQUE/i.test(f.level);
+  const tech = /TECHNIQUE/i.test(f.family);
+  return `/formations-drone-a-lyon/#${spec ? (tech ? 'cats-btp' : 'cats-media') : tech ? 'open-bapd-btp' : 'open-bapd-media'}`;
+};
+const permisPose: PopPose = permis
+  ? /CATS/i.test(permis.requirement ?? '')
+    ? 'permis-cats'
+    : /BAPD/i.test(permis.requirement ?? '')
+      ? 'permis-bapd'
+      : 'permis-a1-a3'
+  : 'assis';
+const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+// "A1/A3 + formation pratique + examen OPEN A2" → three steps.
+const path = permis?.requirementDetail?.split('+').map((s) => s.trim()).filter(Boolean) ?? [];
+---
+
+{
+  discover && (
+    <section class="discover bg-ink text-white" aria-labelledby="discover-title" style={{ '--accent-p': accent }}>
+      <div class="wrap section-pad discover-grid">
+        <div class="discover-copy" data-reveal>
+          <p class="hud-text text-white/60">Découvrez le</p>
+          <h2 id="discover-title" class="display mt-3 text-[clamp(2.1rem,4.4vw,3.8rem)]">
+            {product.name}
+          </h2>
+          {discover.text && <p class="mt-6 max-w-[52ch] text-lg leading-relaxed text-white/75">{discover.text}</p>}
+          <Button href={SITE.contactPath} variant="outline-light" class="mt-8">
+            Nous contacter
+          </Button>
+        </div>
+
+        {image && (
+          <div class="pedestal" data-reveal style={{ '--i': 1 }} aria-hidden="true">
+            <div class="halo" />
+            <div class="disc viewfinder">
+              <Image src={image} alt="" widths={[360, 540, 720]} sizes="(min-width: 1024px) 34vw, 80vw" class="float" />
+            </div>
+            <div class="floor" />
+          </div>
+        )}
+
+        {discover.stats.length > 0 && (
+          <dl class="stats">
+            {discover.stats.map((s, i) => {
+              const n = stat(s.value);
+              return (
+                <div class="stat" data-reveal style={{ '--i': i + 2 }}>
+                  <dd class="stat-value">
+                    {n ? (
+                      <>
+                        <span data-count={n.num}>{n.num}</span>
+                        <span class="stat-unit">{n.rest}</span>
+                      </>
+                    ) : (
+                      <span class="stat-word">{s.value}</span>
+                    )}
+                  </dd>
+                  <dt class="stat-label hud-text">{s.label}</dt>
+                  <span class="gauge" aria-hidden="true">
+                    <span />
+                  </span>
+                </div>
+              );
+            })}
+          </dl>
+        )}
+      </div>
+    </section>
+  )
+}
+
+{advice && <PopAdvice {...advice} product={shortName} />}
+
+{
+  know && (
+    <section class="section-pad border-t border-line bg-paper" aria-labelledby="know-title">
+      <div class="wrap">
+        <h2 id="know-title" class="display flex items-start gap-4 text-[clamp(2rem,3.6vw,3rem)]" data-reveal>
+          <Square color={accent} class="mt-[0.5em] size-3.5 shrink-0" />
+          Ce qu’il faut savoir
+        </h2>
+        {knowCards ? (
+          <ul class="know-grid mt-12" style={{ '--last': 1 + ((3 - ((know.length + 1) % 3)) % 3) }}>
+            {know.map((k, i) => (
+              <li class="know-card" data-reveal style={{ '--i': i % 3 }}>
+                <span class="know-top">
+                  <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+                    <path d={featureIcon(k.title)} pathLength="1" />
+                  </svg>
+                  <span class="know-num hud-text">{pad(i)}</span>
+                </span>
+                {k.title && <h3 class="know-title">{k.title}</h3>}
+                {k.text && <p class="know-text">{k.text}</p>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div class="know-prose mt-10" data-reveal>
+            {know.map((k) => (
+              <p>{k.text}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+{
+  forWho && forWho.length > 0 && (
+    <section class="section-pad border-t border-line bg-mist" aria-labelledby="who-title">
+      <div class="wrap">
+        <div>
+          <h2 id="who-title" class="display flex items-start gap-4 text-[clamp(2rem,3.6vw,3rem)]" data-reveal>
+            <Square color="var(--color-gold)" class="mt-[0.5em] size-3.5 shrink-0" />
+            Pour qui ?
+          </h2>
+          <ul class="who mt-10">
+            {forWho.map((w, i) => (
+              <li class="who-card" data-reveal style={{ '--i': i }}>
+                <span class="who-num hud-text" aria-hidden="true">
+                  {pad(i)}
+                </span>
+                <span class="who-icon">
+                  <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+                    <path d={featureIcon(w.title)} pathLength="1" />
+                  </svg>
+                </span>
+                <h3 class="who-title">{w.title}</h3>
+                <p class="who-text">{w.text}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+{
+  permis && (
+    <section class="permis section-pad border-t border-line bg-paper" aria-labelledby="permis-title">
+      <div class="wrap">
+        <h2 id="permis-title" class="display flex items-start gap-4 text-[clamp(2rem,3.6vw,3rem)]" data-reveal>
+          <Square color={ACTIVITIES.formations.color} class="mt-[0.5em] size-3.5 shrink-0" />
+          Quel permis ?
+        </h2>
+
+        <div class="permis-grid mt-12">
+          <div class="permis-id" data-reveal>
+            <span class="class-ring">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle cx="60" cy="60" r="54" class="ring-track" />
+                <circle cx="60" cy="60" r="54" class="ring-fill" pathLength="1" />
+              </svg>
+              <span class="permis-class">{permis.cls}</span>
+            </span>
+            <ul class="permis-tags">
+              <li>Catégorie {cap(permis.category)}</li>
+              <li>EASA</li>
+              {permis.scenario && <li>Scénario {permis.scenario}</li>}
+            </ul>
+          </div>
+
+          <div class="permis-allows" data-reveal style={{ '--i': 1 }}>
+            {permis.allowsTitle && <h3 class="permis-h">{permis.allowsTitle}</h3>}
+            <ul>
+              {permis.allows.map((a, i) => (
+                <li style={{ '--k': i }}>
+                  <svg viewBox="0 0 20 20" class="check" aria-hidden="true">
+                    <path d="M4 10.5 8 14.5 16 6" pathLength="1" />
+                  </svg>
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div class="permis-need" data-reveal style={{ '--i': 2 }}>
+            <Image src={popPoses[`../../assets/pop/${permisPose}.webp`].default} alt="" width={120} densities={[1, 2]} class="permis-pop" />
+            {permis.requirement && <h3 class="permis-h">{permis.requirement}</h3>}
+            {path.length > 1 ? (
+              <ol class="steps" aria-label="Le parcours">
+                {path.map((step, i) => (
+                  <li style={{ '--k': i }}>
+                    <span class="step-num hud-text">{pad(i)}</span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              permis.requirementDetail && <p class="permis-detail">{permis.requirementDetail}</p>
+            )}
+            {permis.formation?.text && <p class="permis-detail">{permis.formation.text}</p>}
+            <Button href={formationHref(permis.formation)} size="sm" class="mt-5">
+              Voir la formation {permis.formation ? `${cap(permis.formation.level)}, ${permis.formation.family.toLowerCase()}` : ''}
+            </Button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  /* Icons and checks draw themselves when their card is revealed. */
+  .icon path,
+  .check path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) [data-reveal] .icon path,
+    :global(.js) [data-reveal] .check path {
+      stroke-dashoffset: 1;
+      transition: stroke-dashoffset 1100ms var(--ease-out-strong);
+      transition-delay: calc(250ms + var(--i, 0) * 70ms + var(--k, 0) * 120ms);
+    }
+    :global(.js) [data-reveal].is-in .icon path,
+    :global(.js) [data-reveal].is-in .check path {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* ---------- Découvrez le ---------- */
+  .discover {
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 50% 60% at 75% 40%, rgb(175 133 74 / 0.18), transparent 70%),
+      var(--color-ink);
+  }
+  .discover-grid {
+    display: grid;
+    gap: 48px 64px;
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .discover-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .stats {
+      grid-column: 1 / -1;
+    }
+  }
+  .pedestal {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  .halo {
+    position: absolute;
+    inset: 6% 6% 14%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in oklab, var(--accent-p) 45%, transparent), transparent 65%);
+    filter: blur(20px);
+  }
+  /* Product shots are on white: a white disc, so the photo sits on it naturally. */
+  .disc {
+    --vf: rgb(255 255 255 / 0.5);
+    --vf-inset: -14px;
+    position: relative;
+    width: min(100%, 440px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #fff 58%, #e9e9e6);
+    box-shadow:
+      0 0 0 10px rgb(255 255 255 / 0.04),
+      0 40px 80px -30px rgb(0 0 0 / 0.9);
+  }
+  .disc :global(img) {
+    width: 78%;
+    height: auto;
+    mix-blend-mode: multiply;
+  }
+  .floor {
+    width: 55%;
+    height: 18px;
+    margin-top: 18px;
+    border-radius: 50%;
+    background: radial-gradient(rgb(0 0 0 / 0.6), transparent 70%);
+  }
+  .stats {
+    display: grid;
+    gap: 14px;
+  }
+  @media (min-width: 640px) {
+    .stats {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 20px 22px;
+    background: rgb(255 255 255 / 0.05);
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .stat-value {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-gold);
+  }
+  .stat-unit {
+    font-size: 0.5em;
+    margin-left: 0.15em;
+  }
+  .stat-word {
+    font-size: 0.55em;
+    line-height: 1.15;
+  }
+  .stat-label {
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.65);
+  }
+  /* A gold line drawn under each figure (decorative, not a measure). */
+  .gauge {
+    display: block;
+    width: 48px;
+    height: 2px;
+    margin-top: 8px;
+  }
+  .gauge span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--color-gold);
+    transform-origin: left;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .float {
+      animation: float 6s ease-in-out infinite alternate;
+    }
+    :global(.js) .stat[data-reveal] .gauge span {
+      transform: scaleX(0);
+      transition: transform 1400ms var(--ease-out-strong) 300ms;
+    }
+    :global(.js) .stat[data-reveal].is-in .gauge span {
+      transform: none;
+    }
+  }
+  @keyframes float {
+    from {
+      transform: translateY(-6px) rotate(-1deg);
+    }
+    to {
+      transform: translateY(8px) rotate(1deg);
+    }
+  }
+
+  /* ---------- Ce qu'il faut savoir ---------- */
+  .know-grid {
+    display: grid;
+    gap: 14px;
+  }
+  @media (min-width: 640px) {
+    .know-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1024px) {
+    .know-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    /* Bento: the first point is the headline, larger and dark. */
+    .know-grid > .know-card:first-child:not(:only-child) {
+      grid-column: span 2;
+    }
+    /* The last card widens to close the last row (--last, computed from the count). */
+    .know-grid > .know-card:last-child:not(:first-child) {
+      grid-column: span var(--last);
+    }
+  }
+  .know-card:first-child {
+    color: #fff;
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+  .know-card:first-child .know-text {
+    color: rgb(255 255 255 / 0.72);
+  }
+  .know-card:first-child .icon {
+    color: var(--color-gold);
+    background: rgb(175 133 74 / 0.18);
+  }
+  .know-card:first-child .know-title {
+    font-size: clamp(1.3rem, 2vw, 1.7rem);
+  }
+  /* A soft light follows the pointer over the cards. */
+  .know-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgb(175 133 74 / 0.14), transparent 60%);
+    transition: opacity 300ms ease;
+    pointer-events: none;
+  }
+  .know-card:first-child::before {
+    background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgb(175 133 74 / 0.3), transparent 60%);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .know-card:hover::before {
+      opacity: 1;
+    }
+    .know-card:hover .icon {
+      transform: rotate(-6deg) scale(1.08);
+    }
+  }
+  .know-top .icon {
+    transition: transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .know-card {
+    position: relative;
+    padding: 26px 26px 28px;
+    background: var(--color-paper);
+    border: 1px solid var(--color-line);
+    transition:
+      border-color 250ms ease,
+      box-shadow 400ms ease,
+      translate 400ms var(--ease-out-strong);
+  }
+  .know-card::after {
+    content: '';
+    position: absolute;
+    inset: -1px -1px auto;
+    height: 3px;
+    background: var(--color-gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 500ms var(--ease-out-strong);
+  }
+  .know-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .know-top .icon {
+    width: 44px;
+    height: 44px;
+    padding: 9px;
+    color: var(--color-gold-deep);
+    background: rgb(175 133 74 / 0.1);
+  }
+  .know-num {
+    color: var(--color-muted);
+  }
+  .know-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .know-text {
+    margin-top: 8px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .know-card:hover {
+      border-color: transparent;
+      box-shadow: 0 24px 40px -24px rgb(0 0 0 / 0.35);
+      translate: 0 -4px;
+    }
+    .know-card:hover::after {
+      transform: scaleX(1);
+    }
+  }
+  .know-prose {
+    display: grid;
+    gap: 14px;
+    max-width: 70ch;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: var(--color-ink-soft);
+  }
+
+  /* ---------- Pour qui ? ----------
+     Cards that turn ink on hover, the icon in a gold disc, a big outlined index. */
+  .who {
+    display: grid;
+    gap: 14px;
+    margin-top: 40px;
+  }
+  @media (min-width: 640px) {
+    .who {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+  }
+  .who-card {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 26px 30px;
+    background: var(--color-paper);
+    transition:
+      background-color 350ms ease,
+      color 350ms ease,
+      translate 400ms var(--ease-out-strong);
+  }
+  .who-num {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    font-size: 3.6rem;
+    font-weight: 800;
+    font-stretch: 125%;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgb(175 133 74 / 0.45);
+  }
+  .who-icon {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    color: var(--color-ink);
+    background: var(--color-gold);
+    transition: transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .who-icon .icon {
+    width: 26px;
+    height: 26px;
+  }
+  .who-title {
+    margin-top: 22px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .who-text {
+    margin-top: 8px;
+    line-height: 1.55;
+    color: var(--color-ink-soft);
+    transition: color 350ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .who-card:hover {
+      color: #fff;
+      background: var(--color-ink);
+      translate: 0 -4px;
+    }
+    .who-card:hover .who-text {
+      color: rgb(255 255 255 / 0.75);
+    }
+    .who-card:hover .who-icon {
+      transform: rotate(-8deg) scale(1.08);
+    }
+  }
+
+  /* ---------- Quel permis ? ---------- */
+  .permis-grid {
+    display: grid;
+    gap: 20px;
+  }
+  @media (min-width: 1024px) {
+    .permis-grid {
+      grid-template-columns: 3fr 4fr 5fr;
+      align-items: stretch;
+    }
+  }
+  .permis-id,
+  .permis-allows,
+  .permis-need {
+    padding: 28px;
+    border: 1px solid var(--color-line);
+  }
+  .permis-id {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    color: #fff;
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+  .class-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(130px, 14vw, 170px);
+    aspect-ratio: 1;
+  }
+  .class-ring svg {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-90deg);
+  }
+  .class-ring circle {
+    fill: none;
+    stroke-width: 6;
+  }
+  .ring-track {
+    stroke: rgb(255 255 255 / 0.1);
+  }
+  .ring-fill {
+    stroke: var(--color-gold);
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  .permis-class {
+    font-size: clamp(3rem, 6vw, 4.4rem);
+    font-weight: 800;
+    font-stretch: 125%;
+    line-height: 1;
+    color: var(--color-gold);
+  }
+  .permis-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .permis-tags li {
+    padding: 4px 10px;
+    border: 1px solid rgb(255 255 255 / 0.3);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .permis-h {
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .permis-allows ul {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .permis-allows li {
+    display: flex;
+    gap: 10px;
+    line-height: 1.45;
+    color: var(--color-ink-soft);
+  }
+  .check {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 2px;
+    color: #fff;
+    background: var(--color-formations);
+  }
+  .check path {
+    stroke-width: 2.4;
+  }
+  /* Pop holds the licence this drone needs, peeking over the card. */
+  .permis-need {
+    position: relative;
+  }
+  .permis-need :global(.permis-pop) {
+    position: absolute;
+    right: 18px;
+    bottom: calc(100% - 26px);
+    width: 96px;
+    height: auto;
+    pointer-events: none;
+  }
+  @media (max-width: 1023px) {
+    .permis-need {
+      margin-top: 70px;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .permis-need[data-reveal] :global(.permis-pop) {
+      transform: translateY(40px);
+      opacity: 0;
+      transition:
+        transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 600ms,
+        opacity 300ms ease 600ms;
+    }
+    :global(.js) .permis-need[data-reveal].is-in :global(.permis-pop) {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  .permis-need {
+    background: color-mix(in srgb, var(--color-formations) 6%, white);
+    border-color: color-mix(in srgb, var(--color-formations) 30%, white);
+  }
+  .steps {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    left: 15px;
+    width: 2px;
+    background: var(--color-formations);
+    opacity: 0.4;
+  }
+  .steps li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+  }
+  .step-num {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    color: #fff;
+    background: var(--color-formations);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  }
+  .permis-detail {
+    margin-top: 10px;
+    line-height: 1.5;
+    color: var(--color-ink-soft);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .permis-id[data-reveal] .ring-fill {
+      stroke-dashoffset: 1;
+      transition: stroke-dashoffset 1600ms var(--ease-out-strong) 300ms;
+    }
+    :global(.js) .permis-id[data-reveal].is-in .ring-fill {
+      stroke-dashoffset: 0.12;
+    }
+    :global(.js) .permis-need[data-reveal] .steps li {
+      opacity: 0;
+      translate: -10px 0;
+      transition:
+        opacity 500ms ease,
+        translate 600ms var(--ease-out-strong);
+      transition-delay: calc(400ms + var(--k) * 160ms);
+    }
+    :global(.js) .permis-need[data-reveal].is-in .steps li {
+      opacity: 1;
+      translate: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .know-card,
+    .know-card::after {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Key figures count up once, when their card is revealed.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => {
+    if (still) return;
+    const text = el.dataset.count!;
+    const target = parseFloat(text.replace(',', '.'));
+    const decimals = (text.split(/[.,]/)[1] ?? '').length;
+    const fmt = (n: number) => n.toFixed(decimals).replace('.', ',');
+    el.textContent = fmt(0);
+    const card = el.closest('[data-reveal]') ?? el;
+    new IntersectionObserver(([e], io) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      const start = performance.now();
+      const step = (now: number) => {
+        const p = Math.min(1, (now - start) / 1400);
+        el.textContent = fmt(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, { rootMargin: '0px 0px -12% 0px' }).observe(card);
+  });
+
+  // The light on "Ce qu'il faut savoir" cards follows the pointer.
+  document.querySelectorAll<HTMLElement>('.know-card').forEach((card) => {
+    card.addEventListener('pointermove', (e) => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    });
+  });
+</script>

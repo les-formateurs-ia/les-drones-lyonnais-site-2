@@ -1,0 +1,37 @@
+---
+import { SITE } from '../../data/site';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Absolute canonical URL; defaults to the current page on the production domain. */
+  canonical?: string;
+  /** Absolute URL of a 1200×630 social image. */
+  image?: string;
+  noindex?: boolean;
+}
+
+const { title, description, image, noindex = false } = Astro.props;
+const canonical = Astro.props.canonical ?? new URL(Astro.url.pathname, Astro.site).href;
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+<meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow, max-snippet:-1, max-video-preview:-1, max-image-preview:large'} />
+
+<meta property="og:locale" content={SITE.locale} />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content={SITE.name} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+{image && <meta property="og:image" content={image} />}
+{image && <meta property="og:image:width" content="1200" />}
+{image && <meta property="og:image:height" content="630" />}
+{image && <meta property="og:image:alt" content={title} />}
+
+<meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+{image && <meta name="twitter:image" content={image} />}

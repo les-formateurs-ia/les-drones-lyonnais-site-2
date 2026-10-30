@@ -1,0 +1,588 @@
+---
+// Pop's chat, on every page: a round button with Pop's face that opens a small chat.
+// It is a guided assistant, not an AI: Pop greets according to the page, suggests the
+// questions people ask there, answers them with links, and searches the whole site
+// (products, services, trainings) for anything typed. Anything else goes to the team.
+// Any element with [data-pop-open] opens the chat; [data-pop-ask="…"] also asks that
+// question. Answers are in this file (ANSWERS) so the team can edit them.
+import { Image } from 'astro:assets';
+import popHead from '../../assets/pop/tete.webp';
+import { SITE } from '../../data/site';
+
+export interface PopContext {
+  /** Page family, picks the greeting and suggestions. */
+  page: 'accueil' | 'prestations' | 'formations' | 'boutique' | 'location' | 'produit' | 'autre';
+  /** On product pages. */
+  product?: { name: string; kind: 'vente' | 'location'; cls: string | null; advice?: string };
+}
+interface Props {
+  context: PopContext;
+}
+const { context } = Astro.props;
+---
+
+<div class="pop-chat" data-pop-chat data-context={JSON.stringify(context)} data-phone={SITE.phone} data-phone-href={SITE.phoneHref} data-email={SITE.email} data-contact={SITE.contactPath}>
+  <p class="nudge" data-nudge hidden>
+    <span data-nudge-text></span>
+    <button type="button" class="nudge-close" aria-label="Fermer" data-nudge-close>×</button>
+  </p>
+  <button type="button" class="launcher" aria-expanded="false" aria-controls="pop-panel" data-launcher>
+    <Image src={popHead} alt="" width={64} height={64} densities={[1, 2]} class="head" />
+    <span class="sr-only">Discuter avec Pop, l’assistant du site</span>
+  </button>
+
+  <div class="panel" id="pop-panel" role="dialog" aria-label="Discussion avec Pop" hidden data-panel>
+    <header class="panel-head">
+      <Image src={popHead} alt="" width={40} height={40} densities={[1, 2]} class="mini" />
+      <div>
+        <p class="name">Pop</p>
+        <p class="role">Mascotte et assistant des Drones Lyonnais</p>
+      </div>
+      <button type="button" class="close" aria-label="Fermer la discussion" data-close>×</button>
+    </header>
+    <div class="log" aria-live="polite" data-log></div>
+    <div class="chips" data-chips></div>
+    <form class="ask" data-ask>
+      <label class="sr-only" for="pop-input">Votre question</label>
+      <input id="pop-input" type="text" autocomplete="off" placeholder="Une question, un produit…" />
+      <button type="submit" aria-label="Envoyer">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h12M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
+<style>
+  .pop-chat {
+    position: fixed;
+    right: clamp(14px, 2.5vw, 28px);
+    bottom: clamp(14px, 2.5vw, 28px);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  .launcher {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--color-ink);
+    box-shadow:
+      0 0 0 2px var(--color-gold),
+      0 16px 30px -10px rgb(0 0 0 / 0.5);
+    transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .launcher .head {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .launcher::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 2px solid var(--color-gold);
+    animation: ping 2.6s var(--ease-out-strong) 3;
+  }
+  @keyframes ping {
+    from {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    to {
+      transform: scale(1.45);
+      opacity: 0;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .launcher:hover {
+      transform: scale(1.08) rotate(-4deg);
+    }
+  }
+  .launcher[aria-expanded='true'] {
+    transform: scale(0.9);
+  }
+
+  .nudge {
+    position: relative;
+    max-width: 260px;
+    padding: 12px 34px 12px 14px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #fff;
+    background: var(--color-ink);
+    box-shadow: 0 16px 30px -12px rgb(0 0 0 / 0.5);
+    animation: pop-in 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .nudge-close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    font-size: 18px;
+    color: rgb(255 255 255 / 0.7);
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.95);
+    }
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    width: min(380px, calc(100vw - 28px));
+    height: min(560px, calc(100svh - 120px));
+    border: 1px solid var(--color-line);
+    background: var(--color-paper);
+    box-shadow: 0 30px 70px -20px rgb(0 0 0 / 0.5);
+    transform-origin: 100% 100%;
+    animation: open 260ms var(--ease-out-strong);
+  }
+  .panel[hidden] {
+    display: none;
+  }
+  @keyframes open {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+    }
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 12px 12px 14px;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .mini {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px var(--color-gold);
+  }
+  .name {
+    font-weight: 700;
+  }
+  .role {
+    font-size: 13px;
+    color: rgb(255 255 255 / 0.65);
+  }
+  .close {
+    margin-left: auto;
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  .log {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 14px;
+    background: var(--color-mist);
+  }
+  .log :global(.msg) {
+    max-width: 88%;
+    padding: 10px 12px;
+    font-size: 15px;
+    line-height: 1.45;
+    animation: msg-in 300ms var(--ease-out-strong);
+  }
+  .log :global(.pop) {
+    align-self: flex-start;
+    background: #fff;
+    border: 1px solid var(--color-line);
+  }
+  .log :global(.me) {
+    align-self: flex-end;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .log :global(.msg a) {
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .log :global(.msg ul) {
+    display: grid;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .log :global(.msg li::before) {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-right: 8px;
+    vertical-align: middle;
+    background: var(--color-gold);
+  }
+  .log :global(.typing) {
+    display: inline-flex;
+    gap: 4px;
+  }
+  .log :global(.typing i) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-muted);
+    animation: dot 900ms ease-in-out infinite;
+  }
+  .log :global(.typing i:nth-child(2)) {
+    animation-delay: 150ms;
+  }
+  .log :global(.typing i:nth-child(3)) {
+    animation-delay: 300ms;
+  }
+  @keyframes dot {
+    50% {
+      transform: translateY(-4px);
+      opacity: 0.4;
+    }
+  }
+  @keyframes msg-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px 0;
+  }
+  .chips :global(button) {
+    padding: 7px 11px;
+    border: 1px solid var(--color-line);
+    font-size: 14px;
+    font-weight: 600;
+    background: #fff;
+    transition: border-color 150ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .chips :global(button:hover) {
+      border-color: var(--color-ink);
+    }
+  }
+  .ask {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px 12px;
+  }
+  .ask input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--color-line);
+    font: inherit;
+    font-size: 16px;
+  }
+  .ask button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    color: #fff;
+    background: var(--color-ink);
+  }
+  .ask svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  @media (max-width: 480px) {
+    .panel {
+      position: fixed;
+      inset: auto 0 0;
+      width: 100%;
+      height: min(80svh, 600px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .launcher::after,
+    .nudge,
+    .panel,
+    .log :global(.msg) {
+      animation: none;
+    }
+    .launcher {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { search, TYPE_LABEL, normalize } from '../../lib/search-client';
+
+  type Ctx = { page: string; product?: { name: string; kind: string; cls: string | null; advice?: string } };
+  type Answer = { text: string; next?: string[] };
+
+  const root = document.querySelector<HTMLElement>('[data-pop-chat]');
+  if (root) {
+    const ctx: Ctx = JSON.parse(root.dataset.context!);
+    const { phone, phoneHref, email, contact } = root.dataset as Record<string, string>;
+    const launcher = root.querySelector<HTMLButtonElement>('[data-launcher]')!;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const log = root.querySelector<HTMLElement>('[data-log]')!;
+    const chips = root.querySelector<HTMLElement>('[data-chips]')!;
+    const form = root.querySelector<HTMLFormElement>('[data-ask]')!;
+    const input = form.querySelector('input')!;
+    const nudge = root.querySelector<HTMLElement>('[data-nudge]')!;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const team = `<a href="${contact}">écrire à l’équipe</a> ou appeler le <a href="${phoneHref}">${phone}</a>`;
+
+    // ----- What Pop knows -----
+    const ANSWERS: Record<string, Answer> = {
+      'Quel drone choisir ?': {
+        text: 'Avec plaisir ! Pour quel usage ?',
+        next: ['Loisir et voyage', 'Vidéo et photo pro', 'Inspection et cartographie', 'Je débute'],
+      },
+      'Loisir et voyage': {
+        text: 'Légers et simples : <ul><li><a href="/boutique/?filtre=dji-mini#catalogue">DJI Mini</a>, moins de 250 g</li><li><a href="/boutique/?filtre=dji-neo#catalogue">DJI Neo</a>, ultra-léger</li><li><a href="/boutique/?filtre=dji-air#catalogue">DJI Air</a>, le polyvalent</li></ul>',
+        next: ['Faut-il une formation ?', 'Parler à l’équipe'],
+      },
+      'Vidéo et photo pro': {
+        text: 'Pour des images de très haute qualité : <ul><li><a href="/boutique/?filtre=dji-mavic#catalogue">DJI Mavic 4 Pro</a>, trois caméras</li><li><a href="/boutique/?filtre=mavic-c5#catalogue">Mavic 4 Pro certifié C5</a>, pour les scénarios STS</li><li><a href="/boutique/?filtre=inspire-3#catalogue">DJI Inspire 3</a>, cinéma 8K</li></ul>',
+        next: ['Faut-il une formation ?', 'Louer plutôt qu’acheter ?'],
+      },
+      'Inspection et cartographie': {
+        text: 'Les drones pros de mission : <ul><li><a href="/boutique/?filtre=matrice-4#catalogue">DJI Matrice 4</a>, compact, thermique en version 4T</li><li><a href="/boutique/?filtre=matrice-400#catalogue">DJI Matrice 400</a>, la plateforme industrielle</li><li><a href="/boutique/?filtre=capteur-thermographie#catalogue">Capteurs thermiques</a></li></ul>',
+        next: ['Quelle formation choisir ?', 'Parler à l’équipe'],
+      },
+      'Je débute': {
+        text: 'Je vous conseille un drone de <a href="/boutique/?filtre=classe-c0#catalogue">classe C0</a> (moins de 250 g), comme le DJI Mini : le plus simple pour commencer, sans formation obligatoire.',
+        next: ['Faut-il une formation ?', 'Quelle formation choisir ?'],
+      },
+      'Faut-il une formation ?': {
+        text: `${ctx.product?.advice ?? 'Cela dépend de la classe du drone : C0 sans formation obligatoire, C1 et C3 avec la formation en ligne A1/A3, C2 avec le certificat A2, C5 et C6 avec un certificat de catégorie Spécifique.'} Pour un usage professionnel, voyez <a href="/formations-drone-a-lyon/">nos formations BAPD et CATS</a>.`,
+        next: ['Quelle formation choisir ?', 'Parler à l’équipe'],
+      },
+      'Quelle formation choisir ?': {
+        text: 'Quel est votre métier ?',
+        next: ['BTP, inspection, mesure', 'Image et communication', 'Je suis déjà certifié'],
+      },
+      'BTP, inspection, mesure': {
+        text: 'Les <a href="/formations-drone-a-lyon/#technique">formations techniques</a> : Open BAPD (42 heures) puis Spécifique CATS (5 jours), certification RS6765.',
+        next: ['Financement CPF', 'Demander un devis'],
+      },
+      'Image et communication': {
+        text: 'Les <a href="/formations-drone-a-lyon/#artistique">formations artistiques</a> : Open BAPD média (42 heures) puis Spécifique CATS image et son (5 jours), certification RS6766.',
+        next: ['Financement CPF', 'Demander un devis'],
+      },
+      'Je suis déjà certifié': {
+        text: 'Passez aux spécialisations : <a href="/formations-drone-a-lyon/#thermographie">thermographie</a>, <a href="/formations-drone-a-lyon/#photogrammetrie">photogrammétrie</a>, <a href="/formations-drone-a-lyon/#pulverisation">pulvérisation</a> ou <a href="/formations-drone-a-lyon/#specialisation-audiovisuelle">audiovisuel</a>.',
+        next: ['Financement CPF', 'Parler à l’équipe'],
+      },
+      'Financement CPF': {
+        text: `Nos formations certifiantes sont finançables par le CPF. Dites-nous laquelle vous intéresse, nous vous aidons à monter le dossier : ${team}.`,
+        next: ['Quelle formation choisir ?'],
+      },
+      'Comment se passe une location ?': {
+        text: 'En quatre étapes : <ul><li>vous choisissez le matériel et vos dates</li><li>nous vérifions la disponibilité et, pour un drone, votre niveau de pilotage</li><li>vous recevez le lien de paiement et la caution</li><li>retrait à Lyon ou livraison, avec une prise en main</li></ul>',
+        next: ['Quel pack choisir ?', 'Faut-il une formation ?'],
+      },
+      'Quel pack choisir ?': {
+        text: 'Qu’allez-vous tourner ?',
+        next: ['Un film avec drone', 'Une interview', 'Une inspection thermique'],
+      },
+      'Un film avec drone': {
+        text: 'Le <a href="/produit/pack-drone-plus-camera-location/">Pack audiovisuel PRO</a> : Sony Alpha 7S III, objectif 24-70 mm et DJI Mavic 4 Pro, prêts à tourner.',
+        next: ['Comment se passe une location ?'],
+      },
+      'Une interview': {
+        text: 'Le <a href="/produit/location-pack-interview/">Pack interview PRO</a> : Sony Alpha 7S III, deux micros DJI Mic 2, trépied et éclairage LED.',
+        next: ['Comment se passe une location ?'],
+      },
+      'Une inspection thermique': {
+        text: 'Le <a href="/produit/pack-inspection-thermqiue-par-drone-location/">Pack inspection thermique</a> : DJI Mavic 3 Thermal avec module RTK, trois batteries et radiocommande Enterprise.',
+        next: ['Faut-il une formation ?', 'Comment se passe une location ?'],
+      },
+      'Louer plutôt qu’acheter ?': {
+        text: 'Pour un tournage ou une mission ponctuelle, la <a href="/location-drone-et-camera/">location</a> revient souvent moins cher. Si vous volez souvent, l’achat devient vite rentable.',
+        next: ['Comment se passe une location ?', 'Quel drone choisir ?'],
+      },
+      'Ce produit est-il disponible ?': {
+        text: `Pour une réponse sûre, l’équipe vérifie le stock ou le planning : ${team}.`,
+      },
+      'Quelle prestation pour mon projet ?': {
+        text: 'Votre projet concerne plutôt…',
+        next: ['Un bâtiment ou un chantier', 'Une vidéo ou un événement'],
+      },
+      'Un bâtiment ou un chantier': {
+        text: 'Voyez nos <a href="/prestations/#technique">prestations techniques</a> : inspection thermique ou visuelle, topographie, modélisation 3D, suivi de chantier.',
+        next: ['Les autorisations de vol ?', 'Demander un devis'],
+      },
+      'Une vidéo ou un événement': {
+        text: 'Voyez nos <a href="/prestations/#artistique">prestations artistiques</a> : prises de vues cinéma, FPV, film d’entreprise, live et post-production.',
+        next: ['Demander un devis'],
+      },
+      'Les autorisations de vol ?': {
+        text: 'Nous nous en occupons : étude aéronautique, autorisations et déclarations font partie de chaque mission.',
+        next: ['Demander un devis'],
+      },
+      'Demander un devis': {
+        text: `Décrivez votre besoin sur <a href="${contact}">la page contact</a>, nous revenons vers vous avec une proposition. Vous pouvez aussi appeler le <a href="${phoneHref}">${phone}</a>.`,
+      },
+      'Parler à l’équipe': {
+        text: `L’équipe est à Lyon : <a href="${phoneHref}">${phone}</a> ou <a href="mailto:${email}">${email}</a>. Ou laissez un message sur <a href="${contact}">la page contact</a>.`,
+      },
+    };
+
+    const page = ctx.page;
+    const p = ctx.product;
+    const GREETING: Record<string, { text: string; chips: string[] }> = {
+      accueil: { text: 'Wouf ! Je suis Pop, la mascotte de l’équipe. Je peux vous orienter : drone, formation, location ou prestation ?', chips: ['Quel drone choisir ?', 'Quelle formation choisir ?', 'Quelle prestation pour mon projet ?', 'Parler à l’équipe'] },
+      prestations: { text: 'Un projet de tournage ou d’inspection ? Je vous aide à trouver la bonne prestation.', chips: ['Quelle prestation pour mon projet ?', 'Les autorisations de vol ?', 'Demander un devis'] },
+      formations: { text: 'Envie de devenir télépilote ? Je connais toutes nos formations par cœur.', chips: ['Quelle formation choisir ?', 'Financement CPF', 'Faut-il une formation ?'] },
+      boutique: { text: 'Bienvenue à la boutique ! Je peux vous aider à choisir votre drone.', chips: ['Quel drone choisir ?', 'Faut-il une formation ?', 'Louer plutôt qu’acheter ?'] },
+      location: { text: 'Un tournage en vue ? Je vous aide à choisir le matériel ou le bon pack.', chips: ['Quel pack choisir ?', 'Comment se passe une location ?', 'Faut-il une formation ?'] },
+      produit: {
+        text: p ? `Une question sur ${p.name} ? Demandez-moi.` : 'Une question sur ce produit ?',
+        chips: p?.kind === 'location' ? ['Comment se passe une location ?', 'Faut-il une formation ?', 'Ce produit est-il disponible ?'] : p?.cls ? ['Faut-il une formation ?', 'Ce produit est-il disponible ?', 'Louer plutôt qu’acheter ?'] : ['Ce produit est-il disponible ?', 'Quel drone choisir ?', 'Parler à l’équipe'],
+      },
+      autre: { text: 'Wouf ! Je suis Pop. Comment puis-je vous aider ?', chips: ['Quel drone choisir ?', 'Quelle formation choisir ?', 'Demander un devis'] },
+    };
+    const greeting = GREETING[page] ?? GREETING.autre;
+
+    // ----- Chat mechanics -----
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const add = (who: 'pop' | 'me', html: string) => {
+      const el = document.createElement('div');
+      el.className = `msg ${who}`;
+      el.innerHTML = html;
+      log.append(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    };
+    const setChips = (list: string[]) => {
+      chips.innerHTML = '';
+      for (const q of list) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = q;
+        b.addEventListener('click', () => ask(q));
+        chips.append(b);
+      }
+    };
+    const reply = (html: string, next?: string[]) => {
+      const typing = add('pop', '<span class="typing"><i></i><i></i><i></i></span>');
+      setChips([]);
+      setTimeout(
+        () => {
+          typing.innerHTML = html;
+          log.scrollTop = log.scrollHeight;
+          setChips(next ?? greeting.chips);
+        },
+        still ? 0 : 550,
+      );
+    };
+    // Free text: a known question, a few keywords, or a search across the site.
+    const INTENTS: [RegExp, string][] = [
+      [/\b(devis|tarif|prix d.une prestation)\b/, 'Demander un devis'],
+      [/\b(cpf|financ)/, 'Financement CPF'],
+      [/\b(permis|formation obligatoire|classe c|reglement|a1 ?a3|certificat)/, 'Faut-il une formation ?'],
+      [/\b(formation|bapd|cats|telepilote)\b/, 'Quelle formation choisir ?'],
+      [/\b(louer|location|reserv)/, 'Comment se passe une location ?'],
+      [/\b(pack)\b/, 'Quel pack choisir ?'],
+      [/\b(choisir|conseil|quel drone)\b/, 'Quel drone choisir ?'],
+      [/\b(autorisation|dgac|declar)/, 'Les autorisations de vol ?'],
+      [/\b(telephone|appeler|contact|humain|equipe|email)\b/, 'Parler à l’équipe'],
+      [/\b(dispo|stock|delai)/, 'Ce produit est-il disponible ?'],
+    ];
+    const ask = async (q: string) => {
+      add('me', esc(q));
+      const known = ANSWERS[q];
+      if (known) return reply(known.text, known.next);
+      const n = normalize(q);
+      const intent = INTENTS.find(([re]) => re.test(n));
+      if (intent) return reply(ANSWERS[intent[1]].text, ANSWERS[intent[1]].next);
+      const results = await search(q, undefined, 5);
+      if (results.length) {
+        return reply(
+          `Voici ce que j’ai trouvé :<ul>${results.map((r) => `<li><a href="${r.u}">${esc(r.n)}</a> <small>(${TYPE_LABEL[r.t]}${r.d && r.t !== 'prestation' ? `, ${esc(r.d)}` : ''})</small></li>`).join('')}</ul>`,
+        );
+      }
+      reply(`Je ne suis qu’un chien, je n’ai pas la réponse à celle-là. L’équipe, si : ${team}.`, ['Parler à l’équipe']);
+    };
+
+    let started = false;
+    const open = (question?: string) => {
+      panel.hidden = false;
+      launcher.setAttribute('aria-expanded', 'true');
+      nudge.hidden = true;
+      try {
+        sessionStorage.setItem('pop-seen', '1');
+      } catch {
+        /* storage blocked */
+      }
+      if (!started) {
+        started = true;
+        add('pop', esc(greeting.text));
+        setChips(greeting.chips);
+      }
+      if (question) ask(question);
+      else input.focus({ preventScroll: true });
+    };
+    const close = () => {
+      panel.hidden = true;
+      launcher.setAttribute('aria-expanded', 'false');
+      launcher.focus({ preventScroll: true });
+    };
+    launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+    root.querySelector('[data-close]')!.addEventListener('click', close);
+    panel.addEventListener('keydown', (e) => e.key === 'Escape' && close());
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+      ask(q);
+    });
+    document.addEventListener('click', (e) => {
+      const trigger = (e.target as HTMLElement).closest<HTMLElement>('[data-pop-open]');
+      if (!trigger) return;
+      e.preventDefault();
+      open(trigger.dataset.popAsk);
+    });
+
+    // A short hello, once per visit, after a few seconds.
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem('pop-seen') === '1';
+    } catch {
+      /* storage blocked: still greet */
+    }
+    if (!seen) {
+      setTimeout(() => {
+        if (!panel.hidden) return;
+        root.querySelector('[data-nudge-text]')!.textContent = greeting.text.length > 90 ? 'Wouf ! Besoin d’un coup de patte ? Je suis là.' : greeting.text;
+        nudge.hidden = false;
+      }, 6000);
+    }
+    root.querySelector('[data-nudge-close]')!.addEventListener('click', () => {
+      nudge.hidden = true;
+      try {
+        sessionStorage.setItem('pop-seen', '1');
+      } catch {
+        /* ignore */
+      }
+    });
+    nudge.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('[data-nudge-close]')) return;
+      open();
+    });
+  }
+</script>

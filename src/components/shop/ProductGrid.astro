@@ -1,0 +1,196 @@
+---
+// The catalogue of a page (shop or rental): filter chips and a grid of products.
+// Filtering runs in the browser (show/hide); without JavaScript, everything is listed.
+// The active filter is kept in the URL (?filtre=…) so it can be shared and linked to.
+import SectionHeader from '../ui/SectionHeader.astro';
+import ProductCard from './ProductCard.astro';
+import type { Filter, Product } from '../../data/catalog';
+
+interface Props {
+  id: string;
+  title: string;
+  intro: string;
+  color: string;
+  products: Product[];
+  filters: Filter[];
+  /** More filters reachable by URL only (mega menu tiles, rental categories…). */
+  extraFilters?: Filter[];
+}
+const { id, title, intro, color, products, filters, extraFilters = [] } = Astro.props;
+const usedFilters = filters.filter((f) => products.some(f.match));
+const allFilters = [...usedFilters, ...extraFilters.filter((f) => !usedFilters.some((u) => u.id === f.id))];
+const labels = Object.fromEntries(allFilters.map((f) => [f.id, f.label]));
+---
+
+<section id={id} aria-labelledby={`${id}-title`} class="catalog section-pad scroll-mt-16 bg-paper" data-catalog data-labels={JSON.stringify(labels)}>
+  <div class="wrap">
+    <SectionHeader id={`${id}-title`} title={title} color={color}>
+      <p class="max-w-[44ch]">{intro}</p>
+    </SectionHeader>
+
+    <div class="chips mt-10" role="group" aria-label="Filtrer le catalogue">
+      <button type="button" data-filter="tout" aria-pressed="true">Tout <span>{products.length}</span></button>
+      {
+        usedFilters.map((f) => (
+          <button type="button" data-filter={f.id} aria-pressed="false">
+            {f.label} <span>{products.filter(f.match).length}</span>
+          </button>
+        ))
+      }
+    </div>
+
+    <p class="state" data-state hidden>
+      <span data-state-text></span>
+      <button type="button" data-clear>Tout afficher</button>
+    </p>
+    <p class="none" data-none hidden>Aucun produit ne correspond. Essayez un autre mot, ou demandez à Pop.</p>
+
+    <ul class="grid mt-10 grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4" aria-live="polite">
+      {
+        products.map((p) => (
+          <li data-tags={allFilters.filter((f) => f.match(p)).map((f) => f.id).join(' ')} data-name={p.name}>
+            <ProductCard product={p} />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chips button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid var(--color-line);
+    font-size: 15px;
+    font-weight: 600;
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      color 200ms ease;
+  }
+  .chips button span {
+    font-size: 12px;
+    font-stretch: 75%;
+    color: var(--color-muted);
+  }
+  .chips button[aria-pressed='true'] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: #fff;
+  }
+  .chips button[aria-pressed='true'] span {
+    color: rgb(255 255 255 / 0.65);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .chips button[aria-pressed='false']:hover {
+      border-color: var(--color-ink);
+    }
+  }
+  .chips button:active {
+    transform: scale(0.97);
+  }
+  .state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+    font-weight: 600;
+  }
+  .state button {
+    padding: 6px 12px;
+    border: 1px solid var(--color-ink);
+    font-size: 14px;
+  }
+  .none {
+    margin-top: 24px;
+    color: var(--color-ink-soft);
+  }
+  .grid li {
+    animation: in 450ms var(--ease-out-strong) backwards;
+  }
+  .grid li[hidden] {
+    display: none;
+  }
+  @keyframes in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grid li {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  import { normalize } from '../../lib/search-client';
+
+  document.querySelectorAll<HTMLElement>('[data-catalog]').forEach((catalog) => {
+    const labels: Record<string, string> = JSON.parse(catalog.dataset.labels!);
+    const buttons = [...catalog.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+    const items = [...catalog.querySelectorAll<HTMLElement>('li[data-tags]')];
+    const state = catalog.querySelector<HTMLElement>('[data-state]')!;
+    const stateText = catalog.querySelector<HTMLElement>('[data-state-text]')!;
+    const none = catalog.querySelector<HTMLElement>('[data-none]')!;
+    const names = items.map((li) => normalize(`${li.dataset.name} ${li.dataset.tags}`));
+
+    const apply = (filter: string, query: string, updateUrl: boolean) => {
+      if (!labels[filter]) filter = 'tout';
+      const words = normalize(query).split(' ').filter(Boolean);
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+      let n = 0;
+      items.forEach((li, i) => {
+        const show = (filter === 'tout' || li.dataset.tags!.split(' ').includes(filter)) && words.every((w) => names[i].includes(w));
+        li.hidden = !show;
+        // Replay the entrance, staggered, for the items that stay.
+        if (show) {
+          li.style.animation = 'none';
+          void li.offsetWidth;
+          li.style.animation = '';
+          li.style.animationDelay = `${Math.min(n++, 12) * 30}ms`;
+        }
+      });
+      const parts = [filter !== 'tout' && labels[filter], query && `« ${query} »`].filter(Boolean);
+      state.hidden = parts.length === 0;
+      stateText.textContent = `${n} résultat${n > 1 ? 's' : ''} : ${parts.join(', ')}`;
+      none.hidden = n > 0;
+      if (updateUrl) {
+        const url = new URL(location.href);
+        if (filter === 'tout') url.searchParams.delete('filtre');
+        else url.searchParams.set('filtre', filter);
+        if (query) url.searchParams.set('q', query);
+        else url.searchParams.delete('q');
+        history.replaceState(null, '', url);
+      }
+    };
+    let current = { filter: 'tout', query: '' };
+    const set = (filter: string, query: string, updateUrl = true) => {
+      current = { filter, query };
+      apply(filter, query, updateUrl);
+    };
+    buttons.forEach((b) => b.addEventListener('click', () => set(b.dataset.filter!, current.query)));
+    catalog.querySelector('[data-clear]')!.addEventListener('click', () => set('tout', ''));
+    // Links elsewhere on the page (mega menu, category tiles) filter without reloading.
+    document.querySelectorAll<HTMLAnchorElement>('a[data-goto-filter]').forEach((a) =>
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        set(a.dataset.gotoFilter!, '');
+        catalog.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }),
+    );
+    const params = new URL(location.href).searchParams;
+    if (params.get('filtre') || params.get('q')) set(params.get('filtre') ?? 'tout', params.get('q') ?? '', false);
+  });
+</script>

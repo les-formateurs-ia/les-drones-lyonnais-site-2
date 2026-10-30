@@ -1,0 +1,30 @@
+---
+// The one way a homepage section opens: LDL square (activity colour, gold by default),
+// title, and an intro with an optional action, on the same 12-column grid everywhere.
+import Square from './Square.astro';
+
+interface Props {
+  id: string;
+  title: string;
+  /** Square colour: an activity colour, or gold for the company itself. */
+  color?: string;
+  /** Light text for dark sections. */
+  dark?: boolean;
+}
+const { id, title, color = 'var(--color-gold)', dark = false } = Astro.props;
+const hasIntro = Astro.slots.has('default');
+---
+
+<header class="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-10" data-reveal>
+  <div class="flex items-start gap-4 lg:col-span-7">
+    <Square color={color} class="mt-[0.55em] size-3.5 md:size-4" />
+    <h2 id={id} class="display text-[clamp(2.1rem,4vw,3.4rem)]">{title}</h2>
+  </div>
+  {
+    hasIntro && (
+      <div class:list={['flex flex-col items-start gap-5 text-lg leading-relaxed lg:col-span-5', dark ? 'text-white/70' : 'text-ink-soft']}>
+        <slot />
+      </div>
+    )
+  }
+</header>

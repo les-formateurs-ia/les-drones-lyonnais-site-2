@@ -1,0 +1,412 @@
+---
+// "Based in Lyon, close to your projects": a map of France stays pinned while scrolling
+// zooms from the whole country down to the Lyon area (departments, Rhône, 100 km ring).
+// "Toute la France" pulls straight back out and draws the routes from Lyon; "Région
+// lyonnaise" zooms back in. The commitments follow below the map.
+import Square from '../ui/Square.astro';
+import { COMMITMENTS } from '../../data/home';
+import { FRANCE_MAP } from '../../data/france-map';
+
+const { width, height, lyon, regions, departments, cities, nearby } = FRANCE_MAP;
+// 100 km ≈ 0.9° of latitude; the map's vertical scale is height / 10° (41.2–51.2°N).
+const RING_100KM = (height / 10) * 0.9;
+// A gentle arc from Lyon to each city.
+const route = (x: number, y: number) => {
+  const mx = (lyon.x + x) / 2;
+  const my = (lyon.y + y) / 2;
+  const dx = x - lyon.x;
+  const dy = y - lyon.y;
+  return `M${lyon.x} ${lyon.y} Q${(mx - dy * 0.18).toFixed(1)} ${(my + dx * 0.18).toFixed(1)} ${x} ${y}`;
+};
+---
+
+<section aria-labelledby="coverage-title" class="coverage border-t border-line bg-paper">
+  <div class="scroller">
+    <div class="stage wrap">
+      <div class="intro" data-reveal>
+        <h2 id="coverage-title" class="display flex items-start gap-4 text-[clamp(2.1rem,4vw,3.4rem)]"><Square color="var(--color-gold)" class="mt-[0.2em] size-3.5 shrink-0 md:size-4" />Basés à Lyon, au plus près de vos projets</h2>
+        <p class="mt-6 max-w-[46ch] text-lg leading-relaxed text-ink-soft">
+          Nous nous déplaçons dans toute la France avec notre matériel professionnel. Notre connaissance des réglementations locales rend chaque tournage et chaque inspection fluides.
+        </p>
+        <div class="toggle" role="group" aria-label="Zone affichée sur la carte">
+          <button type="button" data-view="lyon" aria-pressed="false">Région lyonnaise</button>
+          <button type="button" data-view="france" aria-pressed="true">Toute la France</button>
+        </div>
+      </div>
+
+      <figure class="map-frame">
+        <div class="viewfinder" style={{ '--vf': 'var(--color-ink)', '--vf-inset': '0px' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} class="map" role="img" aria-labelledby="coverage-caption">
+          <g class="cam">
+            <g class="regions">
+              {regions.map((r) => <path d={r.d} data-region={r.code} />)}
+            </g>
+            <g class="departments">
+              {departments.map((d) => <path d={d.d} data-dep={d.code} />)}
+            </g>
+            <circle class="ring" cx={lyon.x} cy={lyon.y} r={RING_100KM} />
+            <g class="ring-label" transform={`translate(${lyon.x} ${lyon.y - RING_100KM})`}>
+              <g class="fix"><text y="-8">100 km</text></g>
+            </g>
+            <g class="routes">
+              {cities.map((c) => <path d={route(c.x, c.y)} pathLength="1" />)}
+            </g>
+            <g class="cities">
+              {
+                cities.map((c) => (
+                  <g transform={`translate(${c.x} ${c.y})`}>
+                    <g class="fix">
+                      <circle r="3.2" class="dot" />
+                      <text class="label" y="-9">
+                        {c.name}
+                      </text>
+                    </g>
+                  </g>
+                ))
+              }
+            </g>
+            <g class="nearby">
+              {
+                nearby.map((c) => (
+                  <g transform={`translate(${c.x} ${c.y})`}>
+                    <g class="fix">
+                      <circle r="3" class="dot" />
+                      <text class="label" y="-8">
+                        {c.name}
+                      </text>
+                    </g>
+                  </g>
+                ))
+              }
+            </g>
+            <g class="lyon" transform={`translate(${lyon.x} ${lyon.y})`}>
+              <g class="fix">
+                <circle class="pulse" r="10" />
+                <rect class="home" x="-6" y="-6" width="12" height="12" />
+                <text class="lyon-label" x="14" y="6">Lyon</text>
+              </g>
+            </g>
+          </g>
+        </svg>
+        </div>
+        <figcaption id="coverage-caption" class="caption hud-text">
+          <span data-caption-lyon>Lyon et sa région : notre base, d’où partent toutes nos missions.</span>
+          <span data-caption-france>Toute la France : nous partons de Lyon avec notre matériel, partout sur le territoire.</span>
+        </figcaption>
+        <p class="credit hud-text">Contours : IGN Admin Express, Licence ouverte</p>
+      </figure>
+    </div>
+  </div>
+
+  <div class="wrap pb-[clamp(80px,10vw,128px)]">
+    <ul class="grid gap-x-10 gap-y-10 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        COMMITMENTS.map((item, i) => (
+          <li class="commitment pt-5" data-reveal style={{ '--i': i }}>
+            <h3 class="flex items-center gap-2 text-lg font-bold [font-stretch:112%]">
+              <Square color="var(--color-gold)" />
+              {item.title}
+            </h3>
+            <p class="mt-2 leading-relaxed text-ink-soft">{item.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  /* ---------- Layout ---------- */
+  .scroller {
+    height: 260svh;
+  }
+  .stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    display: grid;
+    grid-template-columns: 6fr 6fr;
+    align-items: center;
+    gap: 56px;
+    padding-top: 72px;
+  }
+  .toggle {
+    display: inline-flex;
+    margin-top: 32px;
+    padding: 4px;
+    border: 1px solid rgb(0 0 0 / 0.15);
+    background: var(--color-paper);
+  }
+  .toggle button {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-muted);
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      transform 150ms ease-out;
+  }
+  .toggle button[aria-pressed='true'] {
+    background: var(--color-ink);
+    color: #fff;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .toggle button[aria-pressed='false']:hover {
+      color: var(--color-ink);
+    }
+  }
+  .toggle button:active {
+    transform: scale(0.97);
+  }
+
+  .map {
+    display: block;
+    width: 100%;
+    max-height: calc(100svh - 200px);
+  }
+  .caption {
+    position: relative;
+    min-height: 3em;
+    margin-top: 12px;
+    color: var(--color-ink-soft);
+  }
+  .caption span {
+    position: absolute;
+    inset: 0 auto auto 0;
+    transition: opacity 300ms ease;
+  }
+  .caption [data-caption-lyon] {
+    opacity: 0;
+  }
+  .credit {
+    margin-top: 4px;
+    color: var(--color-muted);
+  }
+
+  /* ---------- Map drawing ----------
+     The camera sets --z (zoom) and --t (0 = France, 1 = Lyon) on .cam. Markers and
+     labels sit in .fix groups scaled by 1/z, so they keep their size at any zoom. */
+  .cam {
+    --z: 1;
+    --t: 0;
+  }
+  .fix {
+    transform-box: view-box;
+    transform-origin: 0 0;
+    transform: scale(calc(1 / var(--z)));
+  }
+  .regions path {
+    fill: var(--color-mist);
+    stroke: rgb(0 0 0 / 0.22);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .regions path[data-region='84'] {
+    fill: color-mix(in srgb, var(--color-gold) calc(10% + var(--t) * 14%), var(--color-mist));
+  }
+  .departments {
+    opacity: var(--t);
+  }
+  .departments path {
+    fill: none;
+    stroke: rgb(0 0 0 / 0.2);
+    stroke-width: 0.8;
+    vector-effect: non-scaling-stroke;
+  }
+  .departments path[data-dep='69'] {
+    fill: rgb(175 133 74 / 0.35);
+    stroke: var(--color-gold-deep);
+  }
+  .ring {
+    fill: none;
+    stroke: var(--color-gold-deep);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 4;
+    vector-effect: non-scaling-stroke;
+  }
+  .ring,
+  .ring-label {
+    opacity: calc(var(--t) * 1.6 - 0.6);
+  }
+  .ring-label text {
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+    fill: var(--color-gold-deep);
+  }
+  .routes {
+    opacity: calc(1 - var(--t) * 2);
+  }
+  .routes path {
+    fill: none;
+    stroke: var(--color-gold);
+    stroke-width: 1.5;
+    stroke-dasharray: 1;
+    stroke-dashoffset: calc(1 - var(--draw, 0));
+    vector-effect: non-scaling-stroke;
+  }
+  .dot {
+    fill: var(--color-ink);
+  }
+  .label {
+    font-size: 14px;
+    font-weight: 700;
+    text-anchor: middle;
+    fill: var(--color-ink);
+  }
+  .cities {
+    opacity: calc(1 - var(--t) * 2);
+  }
+  .nearby {
+    opacity: calc(var(--t) * 2 - 1);
+  }
+  .nearby .label {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .home {
+    fill: var(--color-gold);
+  }
+  .pulse {
+    fill: none;
+    stroke: var(--color-gold);
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse 2.4s var(--ease-out-strong) infinite;
+  }
+  @keyframes pulse {
+    from {
+      transform: scale(0.6);
+      opacity: 1;
+    }
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
+  }
+  .lyon-label {
+    font-size: 16px;
+    font-weight: 800;
+    font-stretch: 118%;
+    fill: var(--color-ink);
+  }
+
+  .commitment {
+    border-top: 2px solid var(--color-gold);
+  }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 1023px) {
+    .scroller {
+      height: 220svh;
+    }
+    .stage {
+      grid-template-columns: 1fr;
+      align-content: center;
+      gap: 20px;
+      padding-top: 80px;
+    }
+    .intro p {
+      display: none;
+    }
+    .toggle {
+      margin-top: 18px;
+    }
+    .map {
+      max-height: 52svh;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  // Map camera. Scroll progress through the pinned section drives a zoom from France to
+  // Lyon; the toggle overrides it with a quick tween until the section is left.
+  const section = document.querySelector<HTMLElement>('.coverage');
+  if (section) {
+    const scroller = section.querySelector<HTMLElement>('.scroller')!;
+    const cam = section.querySelector<SVGGElement>('.cam')!;
+    const routes = section.querySelector<SVGGElement>('.routes')!;
+    const buttons = [...section.querySelectorAll<HTMLButtonElement>('[data-view]')];
+    const capLyon = section.querySelector<HTMLElement>('[data-caption-lyon]')!;
+    const capFrance = section.querySelector<HTMLElement>('[data-caption-france]')!;
+    const svg = section.querySelector<SVGSVGElement>('.map')!;
+    const [, , W, H] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    const [lx, ly] = section.querySelector('.lyon')!.getAttribute('transform')!.match(/[-\d.]+/g)!.map(Number);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const Z_LYON = 4.4;
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3);
+    const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+
+    let t = -1; // what is drawn
+    let override: number | null = null; // 0 (France) or 1 (Lyon) while a button rules
+    let tween = 0;
+
+    const render = (value: number) => {
+      if (value === t) return;
+      t = value;
+      const z = Math.exp(Math.log(Z_LYON) * t);
+      const cx = W / 2 + (lx - W / 2) * t;
+      const cy = H / 2 + (ly - H / 2) * t;
+      cam.setAttribute('transform', `translate(${W / 2} ${H / 2}) scale(${z}) translate(${-cx} ${-cy})`);
+      cam.style.setProperty('--z', z.toFixed(4));
+      cam.style.setProperty('--t', t.toFixed(4));
+      // The routes draw themselves as the view widens to the whole country.
+      routes.style.setProperty('--draw', clamp01((0.5 - t) * 2).toFixed(3));
+      const lyonView = t > 0.5;
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.view === 'lyon') === lyonView)));
+      capLyon.style.opacity = lyonView ? '1' : '0';
+      capFrance.style.opacity = lyonView ? '0' : '1';
+    };
+
+    const progress = () => {
+      const r = scroller.getBoundingClientRect();
+      const span = r.height - innerHeight;
+      return span > 0 ? -r.top / span : 0;
+    };
+
+    const onScroll = () => {
+      const p = progress();
+      if (override !== null && (p < -0.05 || p > 1.05)) override = null;
+      if (override !== null || tween) return;
+      const value = ease(clamp01((p - 0.12) / 0.6));
+      render(still ? (value > 0.5 ? 1 : 0) : value);
+    };
+
+    const animateTo = (target: number) => {
+      cancelAnimationFrame(tween);
+      tween = 0;
+      if (still) return render(target);
+      const from = t;
+      const start = performance.now();
+      const DURATION = 900;
+      const step = (now: number) => {
+        const k = ease(Math.min(1, (now - start) / DURATION));
+        render(from + (target - from) * k);
+        tween = k < 1 ? requestAnimationFrame(step) : 0;
+      };
+      tween = requestAnimationFrame(step);
+    };
+
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        override = b.dataset.view === 'lyon' ? 1 : 0;
+        animateTo(override);
+      }),
+    );
+
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onScroll);
+    render(0);
+    onScroll();
+  }
+</script>

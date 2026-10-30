@@ -1,0 +1,1149 @@
+---
+// /formations-drone-a-lyon/ first screen: a flight-school training field seen from
+// above, where a drone flies a real training exercise of the chosen path —
+// Technique: a photogrammetry survey in a grid over a building (photo triggers light up);
+// Artistique: an orbit around a point of interest, camera on the subject.
+// The interactive piece is a 3D "path card" of a pilot: front Technique (Dylan),
+// back Artistique (Théo). It tilts with the pointer (holographic sheen) and flips on
+// click or with the two tabs. Copy, path ladder (Open → Spécifique → Spécialisations)
+// and the order of the catalogue below follow the choice (html[data-famille]).
+// Without JavaScript: Technique, card front, exercise drawn still.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Square from '../ui/Square.astro';
+import { FORMATION_FAMILIES, FORMATION_PROMISES, LEVEL_LABEL, formationsOf, type FormationFamily } from '../../data/formations';
+import { ACTIVITIES } from '../../data/site';
+import dylan from '../../assets/team/dylan-pied.webp';
+import theo from '../../assets/team/theo-pied.webp';
+
+interface Path {
+  id: FormationFamily;
+  label: string;
+  exercise: string;
+  guide: { photo: ImageMetadata; name: string; role: string };
+}
+const PATHS: Path[] = [
+  { id: 'technique', label: 'Technique', exercise: 'Relevé photogrammétrique en quadrillage', guide: { photo: dylan, name: 'Dylan', role: 'Formateur, BTP et inspection' } },
+  { id: 'artistique', label: 'Artistique', exercise: 'Orbite autour d’un point d’intérêt', guide: { photo: theo, name: 'Théo', role: 'Formateur, image et réalisation' } },
+];
+const paths = PATHS.map((p) => {
+  const all = formationsOf(p.id);
+  const at = (level: 'open' | 'specifique' | 'specialisation') => all.filter((f) => f.level === level);
+  return {
+    ...p,
+    info: FORMATION_FAMILIES[p.id],
+    ladder: [
+      { label: LEVEL_LABEL.open, items: at('open') },
+      { label: LEVEL_LABEL.specifique, items: at('specifique') },
+      { label: 'Spécialisations', items: at('specialisation') },
+    ],
+    specialisations: at('specialisation').map((f) => f.title),
+  };
+});
+
+// ---- The training field (viewBox 1600×900).
+const C = { x: 870, y: 330 }; // centre of the exercise, between the copy and the card
+// Technique: lawnmower survey over the building footprint.
+const survey = (() => {
+  const x0 = C.x - 150;
+  const x1 = C.x + 150;
+  const rows = 7;
+  const y0 = C.y - 110;
+  const step = 220 / (rows - 1);
+  let d = `M${x0 - 60} ${y0}`;
+  for (let i = 0; i < rows; i++) {
+    const y = y0 + i * step;
+    const [a, b] = i % 2 ? [x1, x0] : [x0, x1];
+    d += ` L${a} ${y} L${b} ${y}`;
+    if (i < rows - 1) d += ` Q${b + (i % 2 ? -40 : 40)} ${y + step / 2} ${b} ${y + step}`;
+  }
+  return `${d} L${(i => (i % 2 ? x0 - 60 : x1 + 60))(rows - 1)} ${y0 + (rows - 1) * step}`;
+})();
+// Artistique: orbit around the point of interest (closed circle).
+const R = 140;
+const orbit = `M${C.x + R} ${C.y} A${R} ${R} 0 1 1 ${C.x - R} ${C.y} A${R} ${R} 0 1 1 ${C.x + R} ${C.y}`;
+const cones = [
+  [1120, 120],
+  [1520, 560],
+  [1240, 820],
+  [760, 820],
+];
+---
+
+<section class="f-hero" data-famille="technique" aria-labelledby="f-hero-title">
+  <!-- ======== The training field ======== -->
+  <div class="field" aria-hidden="true">
+    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="mow" width="120" height="900" patternUnits="userSpaceOnUse">
+          <rect width="60" height="900" fill="rgb(120 200 110 / 0.035)"></rect>
+        </pattern>
+        <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="10" stroke="rgb(170 230 160 / 0.25)" stroke-width="2"></line>
+        </pattern>
+      </defs>
+      <rect width="1600" height="900" fill="url(#mow)"></rect>
+      <!-- Flight zone -->
+      <rect x="640" y="140" width="900" height="640" rx="28" class="zone"></rect>
+      <text x="658" y="128" class="field-label">ZONE DE VOL · 50 × 30 m</text>
+      <!-- Distance marks -->
+      {[0, 1, 2, 3, 4].map((i) => <text x={640 + i * 225} y="805" class="field-label">{i * 10} m</text>)}
+      <!-- Landing pad -->
+      <g class="pad" transform="translate(1000 640)">
+        <circle r="46"></circle>
+        <circle r="38" class="pad-inner"></circle>
+        <text y="12" text-anchor="middle">H</text>
+      </g>
+      <!-- Cones -->
+      {cones.map(([x, y]) => <g class="cone" transform={`translate(${x} ${y})`}><circle r="9"></circle><circle r="3.5" class="cone-top"></circle></g>)}
+      <!-- Wind sock -->
+      <g class="sock" transform="translate(1400 170)">
+        <line x1="0" y1="0" x2="0" y2="-26"></line>
+        <path d="M0 -26 l40 6 v10 l-40 6z" class="sock-bag"></path>
+      </g>
+      <!-- Compass -->
+      <g class="compass" transform="translate(1500 110)">
+        <circle r="26"></circle>
+        <path d="M0 -20 6 0 0 -4 -6 0z"></path>
+        <text y="-32" text-anchor="middle">N</text>
+      </g>
+
+      <!-- Technique exercise -->
+      <g class="ex ex-tech">
+        <rect x={C.x - 115} y={C.y - 80} width="230" height="160" fill="url(#hatch)" class="building"></rect>
+        <text x={C.x - 115} y={C.y + 102} class="field-label">BÂTIMENT · RELEVÉ 3D</text>
+        <path d={survey} class="route"></path>
+        <path d={survey} class="trail" data-trail="technique"></path>
+        <g data-shots></g>
+      </g>
+      <!-- Artistique exercise -->
+      <g class="ex ex-art">
+        <circle cx={C.x} cy={C.y} r={R} class="route"></circle>
+        <path d={orbit} class="trail" data-trail="artistique"></path>
+        <g class="poi" transform={`translate(${C.x} ${C.y})`}>
+          <circle r="34" class="poi-ring"></circle>
+          <path d="M0 -26 L14 14 L-14 14 Z"></path>
+          <text y="56" text-anchor="middle" class="field-label">POINT D’INTÉRÊT</text>
+        </g>
+      </g>
+
+      <!-- The drone (moved by the script), with its camera's field of view -->
+      <g class="drone" data-drone transform={`translate(${C.x - 250} ${C.y - 150})`}>
+        <path class="fov" d="M0 0 L-26 72 L26 72 Z" data-fov></path>
+        <g class="airframe" data-airframe transform="scale(1.3)">
+          <path d="M-18 -18 18 18M18 -18 -18 18" class="arms"></path>
+          <rect x="-8" y="-8" width="16" height="16" rx="4" class="body"></rect>
+          {
+            [
+              [-18, -18],
+              [18, -18],
+              [-18, 18],
+              [18, 18],
+            ].map(([x, y]) => <circle cx={x} cy={y} r="9" class="rotor" />)
+          }
+        </g>
+      </g>
+    </svg>
+    <div class="vignette"></div>
+  </div>
+
+  <!-- ======== Flight log ======== -->
+  <dl class="log hud-text" aria-hidden="true">
+    <div class="log-title"><span class="log-dot"></span>Carnet de vol</div>
+    <div><dt>Exercice</dt><dd>{paths.map((p) => <span data-for-famille={p.id}>{p.exercise}</span>)}</dd></div>
+    <div><dt>Temps de vol</dt><dd data-time>00:00</dd></div>
+    <div><dt>Batterie</dt><dd><span data-battery>96</span> %</dd></div>
+    <div data-for-famille="technique"><dt>Photos</dt><dd data-shots-count>0</dd></div>
+    <div data-for-famille="artistique"><dt>Tours</dt><dd data-laps>0</dd></div>
+  </dl>
+
+  <!-- ======== Content ======== -->
+  <div class="wrap content">
+    <nav aria-label="Fil d’Ariane" class="hud-text crumbs">
+      <a href="/">Accueil</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Formations</span>
+    </nav>
+
+    <div class="grid">
+      <div class="copy">
+        <h1 id="f-hero-title" class="page-title hud-text">
+          <Square color={ACTIVITIES.formations.color} class="size-[9px]" />
+          Formations drone à Lyon
+        </h1>
+
+        <div class="tabs" role="radiogroup" aria-label="Choisissez votre parcours">
+          {
+            paths.map((p, i) => (
+              <button type="button" role="radio" class="tab" data-tab={p.id} aria-checked={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>
+                <span class="tab-dot" />
+                {p.label}
+              </button>
+            ))
+          }
+        </div>
+
+        {
+          paths.map((p) => (
+            <div class="copy-state" data-for-famille={p.id}>
+              <p class="tagline">
+                {p.info.tagline} · <span>{p.info.certification}</span>
+              </p>
+              <h2 class="title display">{p.info.title}</h2>
+              <p class="text">{p.info.description}</p>
+              <ol class="ladder" aria-label="Votre parcours">
+                {p.ladder.map((step, i) => (
+                  <li style={{ '--i': i }}>
+                    <span class="rung hud-text">0{i + 1}</span>
+                    <span class="rung-body">
+                      <span class="rung-label">{step.label}</span>
+                      <span class="rung-items">
+                        {step.items.map((f, k) => (
+                          <>
+                            {k > 0 && ' · '}
+                            <a href={`#${f.id}`}>
+                              {f.title} <span class="dur">{f.duration}</span>
+                            </a>
+                          </>
+                        ))}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))
+        }
+      </div>
+
+      <!-- ======== The path card (flips) ======== -->
+      <div class="card-zone">
+        <div class="card" data-card aria-hidden="true">
+          {
+            paths.map((p, i) => (
+              <div class:list={['face', i ? 'back' : 'front']}>
+                <div class="sheen" />
+                <div class="face-head">
+                  <span class="hud-text">Carte de parcours · Télépilote</span>
+                  <span class="chip" />
+                </div>
+                <div class="face-body">
+                  <div class="photo">
+                    <Image src={p.guide.photo} alt="" widths={[240, 360]} sizes="150px" loading="eager" />
+                  </div>
+                  <div class="fields">
+                    <p class="f-label hud-text">Parcours</p>
+                    <p class="f-value big">{p.label}</p>
+                    <p class="f-label hud-text">Secteur</p>
+                    <p class="f-value">{p.info.tagline}</p>
+                    <p class="f-label hud-text">Certification</p>
+                    <p class="f-value">{p.info.certification.replace('Certification officielle ', '')}</p>
+                    <p class="f-label hud-text">Catégories</p>
+                    <p class="f-value">Open · Spécifique</p>
+                  </div>
+                </div>
+                <ol class="steps-mini">
+                  {['Open', 'Spécifique', 'Spécialisation'].map((lvl, k) => (
+                    <li style={{ '--k': k }}>
+                      <span class="diamond" />
+                      <span class="hud-text">{lvl}</span>
+                    </li>
+                  ))}
+                </ol>
+                <div class="face-foot">
+                  <p class="f-label hud-text">Spécialisations</p>
+                  <p class="f-value small">{p.specialisations.join(' · ')}</p>
+                  <p class="trainer hud-text">
+                    Formateur : {p.guide.name} — {p.guide.role}
+                  </p>
+                </div>
+                <div class="mrz hud-text">LDL&lt;&lt;FORMATION&lt;&lt;{p.label.toUpperCase()}&lt;&lt;LYON&lt;&lt;&lt;&lt;</div>
+              </div>
+            ))
+          }
+        </div>
+        <p class="card-hint hud-text" aria-hidden="true">Touchez la carte pour la retourner</p>
+      </div>
+    </div>
+
+    <ul class="promises">
+      {
+        FORMATION_PROMISES.map((p) => (
+          <li>
+            <b>{p.title}</b> {p.text}
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .f-hero {
+    --green: #5fd04c;
+    --field: #04090a;
+    position: relative;
+    overflow: hidden;
+    min-height: 100svh;
+    color: #fff;
+    background:
+      radial-gradient(ellipse 60% 55% at 58% 52%, rgb(95 208 76 / 0.14), transparent 70%),
+      var(--field);
+  }
+  .f-hero[data-famille='artistique'] {
+    --green: #e0b25c;
+  }
+  .f-hero[data-famille='technique'] [data-for-famille='artistique'],
+  .f-hero[data-famille='artistique'] [data-for-famille='technique'] {
+    display: none !important;
+  }
+
+  /* ============ Field ============ */
+  .field {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgb(140 220 130 / 0.05) 1px, transparent 1px) 0 0 / 60px 60px,
+      linear-gradient(90deg, rgb(140 220 130 / 0.05) 1px, transparent 1px) 0 0 / 60px 60px;
+  }
+  .field svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .zone {
+    fill: none;
+    stroke: rgb(255 255 255 / 0.25);
+    stroke-width: 1.5;
+    stroke-dasharray: 10 8;
+  }
+  .field-label {
+    font: 500 13px/1 var(--font-sans);
+    font-stretch: 75%;
+    letter-spacing: 0.06em;
+    fill: rgb(255 255 255 / 0.45);
+  }
+  .pad circle {
+    fill: rgb(255 255 255 / 0.04);
+    stroke: rgb(255 255 255 / 0.4);
+    stroke-width: 2;
+  }
+  .pad .pad-inner {
+    stroke-dasharray: 4 6;
+  }
+  .pad text {
+    font: 700 34px var(--font-sans);
+    fill: rgb(255 255 255 / 0.5);
+  }
+  .cone circle {
+    fill: #ff7a1a;
+    opacity: 0.85;
+  }
+  .cone .cone-top {
+    fill: #fff;
+  }
+  .sock line {
+    stroke: rgb(255 255 255 / 0.5);
+    stroke-width: 2;
+  }
+  .sock-bag {
+    fill: #ff7a1a;
+    opacity: 0.8;
+    transform-origin: 0 -21px;
+    animation: sock 3s ease-in-out infinite alternate;
+  }
+  @keyframes sock {
+    to {
+      transform: skewY(-6deg) scaleX(0.9);
+    }
+  }
+  .compass circle {
+    fill: none;
+    stroke: rgb(255 255 255 / 0.3);
+  }
+  .compass path {
+    fill: var(--green);
+  }
+  .compass text {
+    font: 600 12px var(--font-sans);
+    fill: rgb(255 255 255 / 0.6);
+  }
+
+  /* Exercises: one visible at a time. */
+  .ex {
+    transition: opacity 600ms ease;
+  }
+  .f-hero[data-famille='technique'] .ex-art,
+  .f-hero[data-famille='artistique'] .ex-tech {
+    opacity: 0;
+  }
+  .building {
+    stroke: rgb(170 230 160 / 0.6);
+    stroke-width: 1.5;
+  }
+  .route {
+    fill: none;
+    stroke: rgb(255 255 255 / 0.18);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 7;
+  }
+  .trail {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 6px var(--green));
+    transition: stroke 600ms ease;
+  }
+  :global(.f-hero [data-shots] circle) {
+    fill: #fff;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  :global(.f-hero [data-shots] circle.on) {
+    opacity: 0.85;
+    animation: flash 600ms ease-out;
+  }
+  @keyframes flash {
+    from {
+      r: 9;
+      fill: #fff;
+    }
+  }
+  .poi path {
+    fill: var(--green);
+    opacity: 0.8;
+  }
+  .poi-ring {
+    fill: none;
+    stroke: var(--green);
+    stroke-dasharray: 4 5;
+    animation: turn 12s linear infinite;
+    transform-origin: center;
+  }
+  @keyframes turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .drone .arms {
+    stroke: #f2f2f2;
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+  .drone .body {
+    fill: #f2f2f2;
+  }
+  .drone .rotor {
+    fill: rgb(255 255 255 / 0.18);
+    stroke: rgb(255 255 255 / 0.6);
+  }
+  .fov {
+    fill: var(--green);
+    opacity: 0.16;
+    transition: fill 600ms ease;
+  }
+  .vignette {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgb(4 9 10 / 0.92), rgb(4 9 10 / 0.55) 38%, rgb(4 9 10 / 0) 60%),
+      linear-gradient(rgb(4 9 10 / 0.6), transparent 22%, transparent 78%, rgb(4 9 10 / 0.85));
+  }
+
+  /* ============ Flight log ============ */
+  .log {
+    position: absolute;
+    left: calc(50% - 30px);
+    bottom: clamp(56px, 8vh, 84px);
+    z-index: 1;
+    display: grid;
+    gap: 6px;
+    min-width: 250px;
+    padding: 12px 14px;
+    color: rgb(230 255 225 / 0.85);
+    background: rgb(4 12 8 / 0.65);
+    border: 1px solid rgb(140 220 130 / 0.25);
+    backdrop-filter: blur(6px);
+  }
+  .log div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .log dt {
+    color: rgb(230 255 225 / 0.5);
+    text-transform: uppercase;
+  }
+  .log-title {
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .log-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.4s steps(1) infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  /* ============ Content ============ */
+  .content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+    padding-top: calc(72px + clamp(8px, 2.4vh, 24px));
+    padding-bottom: clamp(12px, 2.6vh, 28px);
+  }
+  .crumbs {
+    display: flex;
+    gap: 10px;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: space-between;
+    align-items: center;
+    gap: 32px clamp(32px, 6vw, 96px);
+    flex: 1;
+    padding-block: clamp(10px, 2.5vh, 32px);
+  }
+  .copy {
+    max-width: 33rem;
+  }
+  .page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.8);
+  }
+
+  /* Tabs: two flight-school chips. */
+  .tabs {
+    display: inline-flex;
+    gap: 4px;
+    margin-top: clamp(12px, 2.4vh, 24px);
+    padding: 4px;
+    background: rgb(255 255 255 / 0.06);
+    border: 1px solid rgb(255 255 255 / 0.14);
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    font-size: 16px;
+    font-weight: 700;
+    font-stretch: 112%;
+    color: rgb(255 255 255 / 0.6);
+    transition:
+      color 200ms ease,
+      background-color 300ms ease;
+  }
+  .tab-dot {
+    width: 8px;
+    height: 8px;
+    background: rgb(255 255 255 / 0.3);
+    transition: background-color 300ms ease;
+  }
+  .tab[aria-checked='true'] {
+    color: var(--color-ink);
+    background: var(--green);
+  }
+  .tab[aria-checked='true'] .tab-dot {
+    background: var(--color-ink);
+  }
+  .tab:hover {
+    color: #fff;
+  }
+  .tab[aria-checked='true']:hover {
+    color: var(--color-ink);
+  }
+  .tab:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  .tagline {
+    margin-top: clamp(14px, 2.6vh, 26px);
+    font-weight: 600;
+    color: var(--green);
+    transition: color 600ms ease;
+  }
+  .tagline span {
+    color: rgb(255 255 255 / 0.7);
+    font-weight: 500;
+  }
+  .title {
+    margin-top: 8px;
+    font-size: clamp(1.9rem, min(3.4vw, 5vh), 3.2rem);
+  }
+  .text {
+    margin-top: clamp(8px, 1.6vh, 16px);
+    max-width: 44ch;
+    font-size: clamp(15px, 2vh, 17px);
+    line-height: 1.55;
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  /* Path ladder: Open → Spécifique → Spécialisations. */
+  .ladder {
+    position: relative;
+    display: grid;
+    gap: clamp(6px, 1.2vh, 12px);
+    margin-top: clamp(14px, 2.8vh, 28px);
+    max-width: 34rem;
+  }
+  .ladder::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    left: 17px;
+    width: 2px;
+    background: linear-gradient(var(--green), rgb(255 255 255 / 0.15));
+  }
+  .ladder li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .rung {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    color: var(--color-ink);
+    background: var(--green);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    transition: background-color 600ms ease;
+  }
+  .rung-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: clamp(5px, 0.9vh, 8px) 12px;
+    flex: 1;
+    background: rgb(255 255 255 / 0.05);
+    border: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .rung-label {
+    font-size: 12.5px;
+    font-stretch: 75%;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.55);
+  }
+  .rung-items {
+    font-size: 15px;
+    color: rgb(255 255 255 / 0.4);
+  }
+  .rung-items a {
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(var(--green), var(--green)) no-repeat left bottom / 0 1.5px;
+    transition: background-size 300ms var(--ease-out-strong);
+  }
+  .rung-items a:hover,
+  .rung-items a:focus-visible {
+    background-size: 100% 1.5px;
+  }
+  .dur {
+    font-weight: 400;
+    color: rgb(255 255 255 / 0.55);
+  }
+
+  /* ============ The path card ============ */
+  .card-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    perspective: 1200px;
+  }
+  .card {
+    --rx: 0deg;
+    --ry: 0deg;
+    --flip: 0deg;
+    --mx: 50%;
+    --my: 50%;
+    position: relative;
+    width: clamp(260px, min(23vw, 40vh), 340px);
+    aspect-ratio: 0.74;
+    transform-style: preserve-3d;
+    transform: rotateX(var(--rx)) rotateY(calc(var(--flip) + var(--ry)));
+    transition: transform 900ms cubic-bezier(0.34, 1.3, 0.64, 1);
+    cursor: pointer;
+  }
+  .card.is-tilting {
+    transition: transform 120ms linear;
+  }
+  .f-hero[data-famille='artistique'] .card {
+    --flip: 180deg;
+  }
+  .face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 2vh, 20px);
+    overflow: hidden;
+    border-radius: 18px;
+    backface-visibility: hidden;
+    background:
+      radial-gradient(circle at 85% 10%, rgb(95 208 76 / 0.35), transparent 45%),
+      linear-gradient(150deg, #13221a, #0a110d 60%, #050806);
+    border: 1px solid rgb(160 240 150 / 0.35);
+    box-shadow:
+      0 30px 60px -20px rgb(0 0 0 / 0.8),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+  .face.back {
+    transform: rotateY(180deg);
+    background:
+      radial-gradient(circle at 85% 10%, rgb(224 178 92 / 0.4), transparent 45%),
+      linear-gradient(150deg, #261c10, #110d08 60%, #070504);
+    border-color: rgb(240 200 130 / 0.4);
+  }
+  /* Holographic sheen following the pointer. */
+  .sheen {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.22), transparent 40%),
+      linear-gradient(115deg, transparent 30%, rgb(120 255 220 / 0.1) 45%, rgb(255 120 220 / 0.1) 55%, transparent 70%);
+    mix-blend-mode: screen;
+  }
+  .face-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgb(255 255 255 / 0.7);
+    text-transform: uppercase;
+  }
+  .chip {
+    width: 34px;
+    height: 26px;
+    border-radius: 5px;
+    background:
+      linear-gradient(90deg, transparent 45%, rgb(0 0 0 / 0.3) 45% 55%, transparent 55%),
+      linear-gradient(transparent 45%, rgb(0 0 0 / 0.3) 45% 55%, transparent 55%),
+      linear-gradient(135deg, #e7c98a, #a47c3c);
+  }
+  .face-body {
+    display: grid;
+    grid-template-columns: 42% 1fr;
+    gap: 14px;
+    margin-top: clamp(10px, 2vh, 18px);
+  }
+  .photo {
+    aspect-ratio: 0.78;
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(#2a3a30, #111a14);
+    border: 1px solid rgb(255 255 255 / 0.15);
+  }
+  .back .photo {
+    background: linear-gradient(#3a3020, #1a140c);
+  }
+  .photo img {
+    width: 100%;
+    height: auto;
+    transform: scale(1.5);
+    transform-origin: 50% 8%;
+  }
+  .fields {
+    display: flex;
+    flex-direction: column;
+  }
+  .f-label {
+    margin-top: 6px;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.45);
+  }
+  .f-label:first-child {
+    margin-top: 0;
+  }
+  .f-value {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .f-value.big {
+    font-size: 1.35rem;
+    font-weight: 800;
+    font-stretch: 118%;
+    color: var(--green);
+  }
+  .face.front .f-value.big {
+    color: #5fd04c;
+  }
+  .face.back .f-value.big {
+    color: #e0b25c;
+  }
+  .f-value.small {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgb(255 255 255 / 0.8);
+  }
+  /* The path on the card: three levels on a line. */
+  .steps-mini {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 14px;
+  }
+  .steps-mini::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 6px;
+    right: 6px;
+    height: 2px;
+    background: linear-gradient(90deg, currentColor, rgb(255 255 255 / 0.15));
+    opacity: 0.6;
+  }
+  .front .steps-mini {
+    color: #5fd04c;
+  }
+  .back .steps-mini {
+    color: #e0b25c;
+  }
+  .steps-mini li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+  }
+  .steps-mini li:first-child {
+    align-items: flex-start;
+  }
+  .steps-mini li:last-child {
+    align-items: flex-end;
+  }
+  .steps-mini .hud-text {
+    font-size: 10.5px;
+    color: rgb(255 255 255 / 0.7);
+    text-transform: uppercase;
+  }
+  .diamond {
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    transform: rotate(45deg);
+  }
+  .steps-mini li:last-child .diamond {
+    background: #0b0f0c;
+    border: 2px solid currentColor;
+  }
+  .face-foot {
+    margin-top: 14px;
+  }
+  .trainer {
+    margin-top: 8px;
+    color: rgb(255 255 255 / 0.55);
+  }
+  .mrz {
+    margin: 10px -4px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgb(255 255 255 / 0.35);
+  }
+  .card-hint {
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.45);
+  }
+
+  /* ============ Promises ============ */
+  .promises {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: space-between;
+    gap: 10px 32px;
+    font-size: 14px;
+    color: rgb(255 255 255 / 0.65);
+  }
+  .promises li::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 10px;
+    vertical-align: 0.1em;
+    background: var(--green);
+  }
+  .promises b {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* ============ Motion ============ */
+  @media (prefers-reduced-motion: no-preference) {
+    .copy-state > * {
+      animation: rise 700ms var(--ease-out-strong) backwards;
+    }
+    .copy-state > :nth-child(2) {
+      animation-delay: 60ms;
+    }
+    .copy-state > :nth-child(3) {
+      animation-delay: 120ms;
+    }
+    .ladder li {
+      animation: rise 700ms var(--ease-out-strong) backwards;
+      animation-delay: calc(180ms + var(--i) * 80ms);
+    }
+    .zone {
+      animation: march 20s linear infinite;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+  }
+  @keyframes march {
+    to {
+      stroke-dashoffset: -180;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card,
+    .card.is-tilting {
+      transition: none;
+    }
+    .sock-bag,
+    .poi-ring,
+    .log-dot {
+      animation: none;
+    }
+  }
+
+  /* ============ Smaller screens ============ */
+  @media (max-width: 1180px) {
+    .log {
+      display: none;
+    }
+  }
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: 1fr;
+      align-items: start;
+    }
+    /* No room for the card; the field stays as a texture, without the exercise. */
+    .card-zone,
+    .ex,
+    .drone {
+      display: none;
+    }
+    .vignette {
+      background: linear-gradient(rgb(4 9 10 / 0.75), rgb(4 9 10 / 0.88));
+    }
+    .promises {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+  @media (max-width: 640px) {
+    .tabs {
+      display: flex;
+    }
+    .tab {
+      flex: 1;
+      justify-content: center;
+    }
+    .rung-items {
+      font-size: 14px;
+    }
+  }
+  @media (max-width: 640px) and (max-height: 740px) {
+    .text,
+    .crumbs {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  type Famille = 'technique' | 'artistique';
+  const hero = document.querySelector<HTMLElement>('.f-hero');
+  if (hero) {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const tabs = [...hero.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+    const card = hero.querySelector<HTMLElement>('[data-card]')!;
+
+    // ---- Choice: tabs (radio group) and the card.
+    const set = (f: Famille) => {
+      hero.dataset.famille = f;
+      document.documentElement.dataset.famille = f;
+      tabs.forEach((t) => {
+        const on = t.dataset.tab === f;
+        t.setAttribute('aria-checked', String(on));
+        t.tabIndex = on ? 0 : -1;
+      });
+      restart();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => set(t.dataset.tab as Famille));
+      t.addEventListener('keydown', (e) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+        e.preventDefault();
+        const next = tabs[(i + 1) % tabs.length];
+        next.focus();
+        next.click();
+      });
+    });
+    card.addEventListener('click', () => set(hero.dataset.famille === 'artistique' ? 'technique' : 'artistique'));
+
+    // Card tilt and sheen under the pointer.
+    if (!still && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      card.addEventListener('pointermove', (e) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width;
+        const y = (e.clientY - r.top) / r.height;
+        card.classList.add('is-tilting');
+        const back = hero.dataset.famille === 'artistique';
+        card.style.setProperty('--ry', `${((x - 0.5) * (back ? -16 : 16)).toFixed(2)}deg`);
+        card.style.setProperty('--rx', `${((0.5 - y) * 12).toFixed(2)}deg`);
+        card.style.setProperty('--mx', `${((back ? 1 - x : x) * 100).toFixed(1)}%`);
+        card.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+      });
+      card.addEventListener('pointerleave', () => {
+        card.classList.remove('is-tilting');
+        card.style.setProperty('--ry', '0deg');
+        card.style.setProperty('--rx', '0deg');
+      });
+    }
+
+    // ---- The exercise: the drone flies the path of the chosen parcours.
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const drone = hero.querySelector<SVGGElement>('[data-drone]')!;
+    const airframe = hero.querySelector<SVGGElement>('[data-airframe]')!;
+    const fov = hero.querySelector<SVGPathElement>('[data-fov]')!;
+    const trails = {
+      technique: hero.querySelector<SVGPathElement>('[data-trail="technique"]')!,
+      artistique: hero.querySelector<SVGPathElement>('[data-trail="artistique"]')!,
+    };
+    const lengths = { technique: trails.technique.getTotalLength(), artistique: trails.artistique.getTotalLength() };
+    // Photo triggers along the survey, every 46 units.
+    const shotsGroup = hero.querySelector<SVGGElement>('[data-shots]')!;
+    const shots: { at: number; el: SVGCircleElement }[] = [];
+    for (let l = 60; l < lengths.technique - 60; l += 46) {
+      const p = trails.technique.getPointAtLength(l);
+      const c = document.createElementNS(svgNS, 'circle');
+      c.setAttribute('cx', p.x.toFixed(1));
+      c.setAttribute('cy', p.y.toFixed(1));
+      c.setAttribute('r', '3.5');
+      shotsGroup.appendChild(c);
+      shots.push({ at: l, el: c });
+    }
+    const centre = { x: 870, y: 330 };
+    const $ = (s: string) => hero.querySelector<HTMLElement>(s)!;
+    const time = $('[data-time]');
+    const battery = $('[data-battery]');
+    const shotsCount = $('[data-shots-count]');
+    const laps = $('[data-laps]');
+
+    let t = 0; // seconds into the current exercise
+    let flown = 0; // total flight seconds
+    let lapCount = 0;
+    const SPEED = { technique: 120, artistique: 150 }; // units per second
+    const restart = () => {
+      t = 0;
+      lapCount = 0;
+      shots.forEach((s) => s.el.classList.remove('on'));
+      for (const k of ['technique', 'artistique'] as Famille[]) {
+        trails[k].style.strokeDasharray = `${lengths[k]}`;
+        trails[k].style.strokeDashoffset = `${lengths[k]}`;
+      }
+      draw(0);
+    };
+    const draw = (dt: number) => {
+      const f = hero.dataset.famille as Famille;
+      const L = lengths[f];
+      const path = trails[f];
+      t += dt;
+      let len = t * SPEED[f];
+      if (f === 'technique') {
+        // One pass, a short hover at the end, then start again.
+        if (len > L + 240) restart();
+        len = Math.min(L, len);
+        shots.forEach((s) => s.el.classList.toggle('on', s.at <= len));
+        shotsCount.textContent = String(shots.filter((s) => s.at <= len).length);
+        path.style.strokeDashoffset = `${L - len}`;
+      } else {
+        // The orbit loops; the trail keeps the last full turn.
+        const loops = Math.floor(len / L);
+        if (loops > lapCount) lapCount = loops;
+        laps.textContent = String(lapCount);
+        len = len % L;
+        path.style.strokeDashoffset = loops ? '0' : `${L - len}`;
+      }
+      const p = path.getPointAtLength(len);
+      const q = path.getPointAtLength(Math.min(L, len + 2));
+      const heading = (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI;
+      // The camera looks down the track for the survey, at the subject for the orbit.
+      const look = f === 'technique' ? heading - 90 : (Math.atan2(centre.y - p.y, centre.x - p.x) * 180) / Math.PI - 90;
+      drone.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
+      airframe.setAttribute('transform', `rotate(${(heading + 45).toFixed(1)}) scale(1.3)`);
+      fov.setAttribute('transform', `rotate(${look.toFixed(1)})`);
+      fov.style.opacity = f === 'technique' ? '0.7' : '1';
+    };
+
+    let active = true;
+    let last = 0;
+    let raf = 0;
+    const tick = (now: number) => {
+      raf = 0;
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      draw(dt);
+      flown += dt;
+      time.textContent = `${String(Math.floor(flown / 60)).padStart(2, '0')}:${String(Math.floor(flown) % 60).padStart(2, '0')}`;
+      battery.textContent = String(Math.max(20, 96 - Math.floor(flown / 9)));
+      if (active) raf = requestAnimationFrame(tick);
+    };
+    const run = () => {
+      if (!raf && active && !still) {
+        last = 0;
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    new IntersectionObserver(([e]) => {
+      active = e.isIntersecting && !document.hidden;
+      run();
+    }).observe(hero);
+    document.addEventListener('visibilitychange', () => {
+      active = !document.hidden;
+      run();
+    });
+
+    if (new URLSearchParams(location.search).get('parcours') === 'artistique') set('artistique');
+    else restart();
+    if (still) {
+      // A still picture: the exercise drawn in full, the drone half way.
+      for (const k of ['technique', 'artistique'] as Famille[]) trails[k].style.strokeDashoffset = '0';
+      shots.forEach((s) => s.el.classList.add('on'));
+    } else run();
+  }
+</script>

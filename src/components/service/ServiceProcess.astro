@@ -1,0 +1,418 @@
+---
+// How a mission runs, drawn with the tool of the trade, and played by the scroll:
+// - Technique: a flight plan. A drone flies from waypoint to waypoint; each step lights
+//   up when it is reached.
+// - Artistique: an editing timeline. Each step is a clip; the playhead (with its
+//   timecode) crosses them.
+// Without JavaScript or with reduced motion, every step is simply shown, all lit.
+import type { ServiceFamily } from '../../data/services';
+import type { ServicePage } from '../../data/service-pages';
+
+interface Props {
+  family: ServiceFamily;
+  process: ServicePage['process'];
+}
+const { family, process } = Astro.props;
+const tech = family === 'technique';
+const n = process.steps.length;
+---
+
+<section id="deroule" class="process section-pad scroll-mt-16" data-family={family} aria-labelledby="process-title" data-process>
+  <div class="wrap">
+    <div class="head" data-reveal>
+      <p class="kicker hud-text">{tech ? 'Plan de vol' : 'Timeline de montage'} · {n} étapes</p>
+      <h2 id="process-title" class="display">{process.title}</h2>
+    </div>
+
+    <div class="track" style={{ '--n': n }} data-track>
+      <div class="rail" aria-hidden="true">
+        {!tech && <span class="ruler" />}
+        <span class="flown" />
+        <span class="mover">
+          {
+            tech ? (
+              <svg viewBox="0 0 48 48" class="drone">
+                <g class="arm">
+                  <path d="M10 10 38 38M38 10 10 38" />
+                </g>
+                <rect x="17" y="17" width="14" height="14" rx="4" class="body" />
+                <circle cx="24" cy="21" r="2" class="cam" />
+                {[
+                  [10, 10],
+                  [38, 10],
+                  [10, 38],
+                  [38, 38],
+                ].map(([x, y]) => (
+                  <g transform={`translate(${x} ${y})`}>
+                    <circle r="8" class="disc" />
+                    <path d="M-7 0h14" class="prop" />
+                  </g>
+                ))}
+              </svg>
+            ) : (
+              <span class="playhead">
+                <span class="tc hud-text" data-tc-play>
+                  00:00:00:00
+                </span>
+              </span>
+            )
+          }
+        </span>
+      </div>
+
+      <ol class="steps">
+        {
+          process.steps.map((st, i) => (
+            <li class="step" data-step style={{ '--k': i }}>
+              <span class="mark hud-text" aria-hidden="true">
+                {tech ? `WP ${String(i + 1).padStart(2, '0')}` : `Clip ${String(i + 1).padStart(2, '0')}`}
+              </span>
+              {!tech && <span class="clip" aria-hidden="true" />}
+              <h3>
+                <span class="sr-only">Étape {i + 1} : </span>
+                {st.title}
+              </h3>
+              {st.text && <p>{st.text}</p>}
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<style>
+  .process {
+    --hl: #6f8dff;
+    --p: 1;
+    color: #fff;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 0%, rgb(63 107 255 / 0.14), transparent 70%),
+      #07090d;
+  }
+  .process[data-family='artistique'] {
+    --hl: var(--color-gold);
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 0%, rgb(175 133 74 / 0.16), transparent 70%),
+      #0b0a09;
+  }
+  :global(.js) .process {
+    --p: 0;
+  }
+  .kicker {
+    text-transform: uppercase;
+    color: var(--hl);
+  }
+  h2 {
+    margin-top: 10px;
+    max-width: 22ch;
+    font-size: clamp(2rem, 3.6vw, 3rem);
+  }
+  .track {
+    position: relative;
+    margin-top: clamp(48px, 7vw, 80px);
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    gap: 28px;
+  }
+  .step {
+    position: relative;
+    padding-top: 44px;
+    opacity: 0.38;
+    transition: opacity 500ms ease;
+  }
+  .step.is-on {
+    opacity: 1;
+  }
+  .mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    text-transform: uppercase;
+    color: var(--hl);
+  }
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.25;
+  }
+  .step p {
+    margin-top: 8px;
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgb(255 255 255 / 0.66);
+  }
+
+  /* ---------- Rail (desktop: horizontal, above the steps) ---------- */
+  .rail {
+    position: relative;
+    height: 56px;
+    margin-bottom: 18px;
+  }
+  /* Column centre of the first and the last step. */
+  .rail {
+    --a: calc(100% / var(--n) / 2);
+  }
+  .rail::before,
+  .flown {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 2px;
+    translate: 0 -50%;
+  }
+  .rail::before {
+    right: 0;
+    background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.28) 0 8px, transparent 8px 16px);
+  }
+  .flown {
+    width: calc(var(--p) * 100%);
+    background: var(--hl);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--hl) 70%, transparent);
+  }
+  .mover {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--p) * 100%);
+    z-index: 2;
+    translate: -50% -50%;
+  }
+  .drone {
+    width: 52px;
+    height: 52px;
+    rotate: 90deg;
+    filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.6));
+  }
+  .arm path {
+    stroke: #d7dbe4;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+  .body {
+    fill: #e9ecf2;
+  }
+  .cam {
+    fill: #07090d;
+  }
+  .disc {
+    fill: rgb(255 255 255 / 0.12);
+    stroke: rgb(255 255 255 / 0.35);
+  }
+  .prop {
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  /* Waypoints: one dot per step, at its column's left edge. */
+  .process[data-family='technique'] .step::before {
+    content: '';
+    position: absolute;
+    top: -46px;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--hl);
+    border-radius: 50%;
+    background: #07090d;
+    transition:
+      background-color 300ms ease,
+      box-shadow 300ms ease;
+  }
+  .process[data-family='technique'] .step.is-on::before {
+    background: var(--hl);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--hl) 25%, transparent);
+  }
+
+  /* Timeline: a ruler, a clip per step, a red playhead. */
+  .ruler {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 12px;
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 1px, transparent 1px 64px),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.18) 0 1px, transparent 1px 16px);
+  }
+  .process[data-family='artistique'] .rail::before {
+    background: rgb(255 255 255 / 0.12);
+    height: 1px;
+  }
+  .clip {
+    position: absolute;
+    top: -52px;
+    left: 0;
+    right: -14px;
+    height: 30px;
+    border-radius: 4px;
+    background:
+      repeating-linear-gradient(90deg, rgb(0 0 0 / 0.18) 0 2px, transparent 2px 40px),
+      color-mix(in srgb, var(--hl) calc(30% + var(--k) * 12%), #2a241d);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.15);
+    transform-origin: left;
+    transition:
+      filter 400ms ease,
+      scale 600ms var(--ease-out-strong);
+    filter: saturate(0.3) brightness(0.7);
+  }
+  .step.is-on .clip {
+    filter: none;
+  }
+  .process[data-family='artistique'] .mark {
+    top: -46px;
+    left: 8px;
+    z-index: 1;
+    color: #000;
+    mix-blend-mode: normal;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+  .process[data-family='artistique'] .step:not(.is-on) .mark {
+    color: #fff;
+  }
+  .playhead {
+    position: relative;
+    display: block;
+    width: 2px;
+    height: 84px;
+    margin-top: -8px;
+    background: #ff3b30;
+  }
+  .playhead::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    translate: -50% 0;
+    border-top: 9px solid #ff3b30;
+    border-inline: 7px solid transparent;
+  }
+  .tc {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    translate: -50% 0;
+    padding: 2px 6px;
+    white-space: nowrap;
+    color: #fff;
+    background: #ff3b30;
+  }
+
+  /* ---------- Small screens: vertical ---------- */
+  @media (max-width: 899px) {
+    .track {
+      padding-left: 34px;
+    }
+    .rail {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 6px;
+      width: 2px;
+      height: auto;
+      margin: 0;
+    }
+    .rail::before {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 2px;
+      height: auto;
+      translate: 0;
+      background: repeating-linear-gradient(rgb(255 255 255 / 0.28) 0 8px, transparent 8px 16px);
+    }
+    .flown {
+      top: 0;
+      width: 2px;
+      height: calc(var(--p) * 100%);
+      translate: 0;
+    }
+    .mover,
+    .ruler {
+      display: none;
+    }
+    .steps {
+      grid-template-columns: 1fr;
+      gap: 36px;
+    }
+    .step {
+      padding-top: 26px;
+    }
+    .process[data-family='technique'] .step::before {
+      top: 0;
+      left: -35px;
+    }
+    .clip {
+      display: none;
+    }
+    .process[data-family='artistique'] .mark {
+      top: 0;
+      left: 0;
+      color: var(--hl);
+    }
+    .process[data-family='artistique'] .step:not(.is-on) .mark {
+      color: var(--hl);
+    }
+    .process[data-family='artistique'] .step::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: -37px;
+      width: 8px;
+      height: 14px;
+      border-radius: 2px;
+      background: var(--hl);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .prop {
+      animation: spin 140ms linear infinite;
+    }
+  }
+  @keyframes spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+</style>
+
+<script>
+  // The scroll moves the drone / the playhead: --p goes from 0 to 1 while the steps
+  // cross the middle of the screen; a step lights up once reached.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll<HTMLElement>('[data-process]').forEach((box) => {
+    const track = box.querySelector<HTMLElement>('[data-track]')!;
+    const steps = [...box.querySelectorAll<HTMLElement>('[data-step]')];
+    const tc = box.querySelector<HTMLElement>('[data-tc-play]');
+    const pad = (x: number) => String(x).padStart(2, '0');
+    const set = (p: number) => {
+      box.style.setProperty('--p', p.toFixed(4));
+      // Waypoint i sits at the left edge of column i.
+      steps.forEach((s, i) => s.classList.toggle('is-on', p >= i / steps.length - 0.001));
+      if (tc) {
+        const f = Math.round(p * 150 * 24);
+        const s = Math.floor(f / 24);
+        tc.textContent = `00:${pad(Math.floor(s / 60))}:${pad(s % 60)}:${pad(f % 24)}`;
+      }
+    };
+    if (still) return set(1);
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const r = track.getBoundingClientRect();
+      const vh = innerHeight;
+      set(Math.min(1, Math.max(0, (vh * 0.8 - r.top) / (r.height + vh * 0.35))));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) addEventListener('scroll', onScroll, { passive: true });
+      else removeEventListener('scroll', onScroll);
+      update();
+    }).observe(box);
+  });
+</script>

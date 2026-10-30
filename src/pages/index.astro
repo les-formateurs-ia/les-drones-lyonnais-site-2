@@ -1,0 +1,67 @@
+---
+import { getImage } from 'astro:assets';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import Hero from '../components/home/Hero.astro';
+import ModeFocus from '../components/home/ModeFocus.astro';
+import Manifesto from '../components/home/Manifesto.astro';
+import ClientLogos from '../components/home/ClientLogos.astro';
+import TeamGrid from '../components/home/TeamGrid.astro';
+import Commitments from '../components/home/Commitments.astro';
+import FinalCta from '../components/home/FinalCta.astro';
+import equipe from '../assets/images/equipe.jpg';
+import logo from '../assets/brand/logo-noir.png';
+import { SITE } from '../data/site';
+import { DEFAULT_MODE } from '../data/modes';
+
+// Title and description keep the intent of the current WordPress homepage.
+const title = 'Les Drones Lyonnais, pilotes de drone à Lyon | Prestations, formations, vente et location';
+const description =
+  'Les Drones Lyonnais : prestations par drone à Lyon, formations professionnelles, vente de matériel et location de drones pour particuliers et entreprises.';
+
+const social = await getImage({ src: equipe, width: 1200, height: 630, format: 'jpg', fit: 'cover', position: 'right' });
+const logoImage = await getImage({ src: logo, width: 600, format: 'png' });
+const abs = (path: string) => new URL(path, SITE.url).href;
+
+const organization = {
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  '@id': `${SITE.url}/#organisation`,
+  name: SITE.name,
+  url: `${SITE.url}/`,
+  logo: abs(logoImage.src),
+  image: abs(social.src),
+  telephone: '+33412240387',
+  email: SITE.email,
+  address: { '@type': 'PostalAddress', addressLocality: SITE.city, addressCountry: 'FR' },
+  areaServed: { '@type': 'Country', name: 'France' },
+  sameAs: SITE.social.map((s) => s.href),
+};
+---
+
+<BaseLayout title={title} description={description} image={abs(social.src)} headerOverlay headerCompact mode={DEFAULT_MODE}>
+  <JsonLd slot="head" data={organization} />
+  <Hero />
+  <!-- The rest of the page scrolls over the hero, which recedes (parallax + blur). -->
+  <div class="page-over relative z-10 bg-ink">
+    <!-- Follows the mode chosen in the hero, like the closing band. -->
+    <ModeFocus />
+    <Manifesto />
+    <ClientLogos />
+    <TeamGrid />
+    <Commitments />
+    <FinalCta byMode />
+  </div>
+</BaseLayout>
+
+<style>
+  /* Soft edge where the page meets the receding hero. */
+  .page-over::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 100%;
+    height: 80px;
+    background: linear-gradient(rgb(0 0 0 / 0), #000);
+    pointer-events: none;
+  }
+</style>

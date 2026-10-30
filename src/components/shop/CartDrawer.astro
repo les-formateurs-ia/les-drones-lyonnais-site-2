@@ -1,0 +1,770 @@
+---
+// The cart, on every page (BaseLayout): a drawer drawn as a drone flight case — metal
+// lid with latches, products set in foam cut-outs. Any [data-cart-add] button adds its
+// product (data-cart-item, JSON CartItem): the product photo is carried to the header's
+// cart by a small drone, then the case opens with the matching accessories
+// (data-cart-suggest). Pop shows only when the case is empty.
+// Validation goes to the contact page (?commande=slug*qty,…) until Stripe Checkout exists.
+import { Image } from 'astro:assets';
+import popLivraison from '../../assets/pop/livraison.webp';
+import { ACTIVITIES, SITE } from '../../data/site';
+---
+
+<dialog class="cart" data-cart aria-labelledby="cart-title" data-contact={SITE.contactPath}>
+  <div class="scrim" data-cart-close></div>
+  <div class="case" role="document">
+    <header class="lid">
+      <span class="latch" aria-hidden="true"></span>
+      <span class="latch" aria-hidden="true"></span>
+      <div>
+        <p class="tag hud-text">Flight case · <span data-cart-n>0 article</span></p>
+        <h2 id="cart-title">Votre panier</h2>
+      </div>
+      <button type="button" class="close" data-cart-close aria-label="Fermer le panier">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </button>
+    </header>
+
+    <p class="added" role="status" data-cart-added hidden>
+      <span class="ok" aria-hidden="true">✓</span>
+      <span><b data-added-name></b> est rangé dans votre flight case.</span>
+    </p>
+
+    <div class="foam">
+      <ul class="lines" data-cart-lines></ul>
+
+      <div class="empty" data-cart-empty>
+        <Image src={popLivraison} alt="" width={180} densities={[1, 2]} class="pop" />
+        <p class="empty-title">Votre flight case est vide</p>
+        <p class="empty-text">Drones, caméras, batteries : tout est prêt à partir de Lyon.</p>
+        <div class="empty-links">
+          <a href={ACTIVITIES.boutique.href}>Voir la boutique <span aria-hidden="true">→</span></a>
+          <a href={ACTIVITIES.location.href}>Louer du matériel <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+
+      <section class="suggest" data-cart-suggest hidden aria-labelledby="suggest-title">
+        <p id="suggest-title" class="suggest-title hud-text">Complétez votre équipement</p>
+        <ul data-suggest-list></ul>
+      </section>
+    </div>
+
+    <footer class="sum" data-cart-sum hidden>
+      <dl>
+        <div>
+          <dt>Sous-total</dt>
+          <dd><b data-cart-total>0 €</b> TTC</dd>
+        </div>
+        <div class="small">
+          <dt>dont TVA (20 %)</dt>
+          <dd data-cart-vat>0 €</dd>
+        </div>
+        <div class="small">
+          <dt>Livraison</dt>
+          <dd>confirmée avec la commande</dd>
+        </div>
+      </dl>
+      <a class="checkout" href={SITE.contactPath} data-cart-checkout>
+        <span>Valider ma commande</span>
+        <span class="go" aria-hidden="true">→</span>
+      </a>
+      <p class="note">Paiement en ligne bientôt disponible : nous vous recontactons pour confirmer le stock, la livraison et le paiement.</p>
+    </footer>
+  </div>
+</dialog>
+
+<style>
+  /* The dialog is the whole screen; the scrim and the case are its children, so both
+     can animate (::backdrop cannot, everywhere). */
+  .cart {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: hidden;
+  }
+  .cart::backdrop {
+    background: transparent;
+  }
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+  .case {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    width: min(440px, 100%);
+    color: #fff;
+    background: #17181b;
+    box-shadow: -30px 0 60px -20px rgb(0 0 0 / 0.6);
+    transform: translateX(104%);
+    transition: transform 420ms var(--ease-out-strong);
+  }
+  .cart.is-open .scrim {
+    opacity: 1;
+  }
+  .cart.is-open .case {
+    transform: none;
+  }
+
+  /* ---------- Lid: brushed aluminium, two latches ---------- */
+  .lid {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 22px 20px;
+    color: #111;
+    background:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.08) 0 1px, transparent 1px 3px),
+      linear-gradient(#d9dbdf, #a9adb4);
+    border-bottom: 3px solid #0d0e10;
+  }
+  .latch {
+    position: absolute;
+    bottom: -9px;
+    width: 34px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(#5b5f66, #2a2c30);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+  }
+  .latch:first-child {
+    left: 22%;
+  }
+  .latch:nth-child(2) {
+    right: 22%;
+  }
+  .tag {
+    text-transform: uppercase;
+    color: #3a3d42;
+  }
+  h2 {
+    margin-top: 2px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+  }
+  .close {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.08);
+    cursor: pointer;
+    transition: background-color 200ms ease;
+  }
+  .close svg {
+    width: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  .close:hover {
+    background: rgb(0 0 0 / 0.16);
+  }
+
+  /* ---------- Confirmation ---------- */
+  .added {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 18px 18px 0;
+    padding: 12px 14px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #d9f5de;
+    background: rgb(62 207 106 / 0.12);
+    border: 1px solid rgb(62 207 106 / 0.35);
+  }
+  .added[hidden] {
+    display: none;
+  }
+  .ok {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-weight: 700;
+    color: #0d2a14;
+    background: #3ecf6a;
+  }
+
+  /* ---------- Foam: the inside of the case ---------- */
+  .foam {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px;
+    background:
+      radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0 3px, transparent 4px) 0 0 / 12px 12px,
+      #202125;
+  }
+  .lines {
+    display: grid;
+    gap: 12px;
+  }
+  .lines:empty {
+    display: none;
+  }
+  .lines :global(.line) {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 14px;
+    padding: 10px;
+    background: #2a2b30;
+    border-radius: 10px;
+    box-shadow:
+      inset 0 3px 10px rgb(0 0 0 / 0.55),
+      inset 0 -1px 0 rgb(255 255 255 / 0.05);
+  }
+  .lines :global(.slot) {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 6px;
+  }
+  .lines :global(.slot img) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .lines :global(.info) {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .lines :global(.name) {
+    font-weight: 600;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .lines :global(.name:hover) {
+    text-decoration: underline;
+  }
+  .lines :global(.unit) {
+    margin-top: 2px;
+    font-size: 13px;
+    color: rgb(255 255 255 / 0.55);
+  }
+  .lines :global(.row) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 10px;
+  }
+  .lines :global(.qty) {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgb(255 255 255 / 0.2);
+    border-radius: 999px;
+  }
+  .lines :global(.qty button) {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 150ms ease;
+  }
+  .lines :global(.qty button:hover) {
+    background: rgb(255 255 255 / 0.1);
+  }
+  .lines :global(.qty output) {
+    min-width: 22px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .lines :global(.line-total) {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .lines :global(.remove) {
+    align-self: flex-start;
+    margin-top: 4px;
+    font-size: 13px;
+    color: rgb(255 255 255 / 0.5);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .lines :global(.remove:hover) {
+    color: #fff;
+  }
+  /* A product just added drops into its slot. */
+  @media (prefers-reduced-motion: no-preference) {
+    .lines :global(.line.is-new) {
+      animation: pack 600ms cubic-bezier(0.34, 1.4, 0.64, 1) 250ms both;
+    }
+    .lines :global(.line.is-new .slot) {
+      animation: settle 600ms cubic-bezier(0.34, 1.4, 0.64, 1) 250ms both;
+    }
+  }
+  @keyframes pack {
+    from {
+      opacity: 0;
+      transform: translateY(-18px);
+    }
+  }
+  @keyframes settle {
+    from {
+      transform: scale(1.25) rotate(-6deg);
+    }
+  }
+
+  /* ---------- Empty ---------- */
+  .empty {
+    display: grid;
+    justify-items: center;
+    padding: 28px 12px;
+    text-align: center;
+  }
+  .empty[hidden] {
+    display: none;
+  }
+  .empty :global(.pop) {
+    width: 150px;
+    height: auto;
+    filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.5));
+  }
+  .empty-title {
+    margin-top: 16px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .empty-text {
+    margin-top: 6px;
+    color: rgb(255 255 255 / 0.65);
+  }
+  .empty-links {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    margin-top: 20px;
+  }
+  .empty-links a {
+    padding: 13px 16px;
+    font-weight: 600;
+    border: 1px solid rgb(255 255 255 / 0.25);
+    transition: border-color 200ms ease;
+  }
+  .empty-links a:hover {
+    border-color: #fff;
+  }
+
+  /* ---------- Suggestions ---------- */
+  .suggest {
+    margin-top: 22px;
+  }
+  .suggest[hidden] {
+    display: none;
+  }
+  .suggest-title {
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+  .suggest ul {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .suggest :global(li) {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px;
+    border: 1px dashed rgb(255 255 255 / 0.18);
+    border-radius: 10px;
+  }
+  .suggest :global(img) {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 6px;
+  }
+  .suggest :global(.s-name) {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .suggest :global(.s-price) {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .suggest :global(.s-add) {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    color: #000;
+    background: var(--color-gold);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 160ms ease-out;
+  }
+  .suggest :global(.s-add:active) {
+    transform: scale(0.92);
+  }
+
+  /* ---------- Summary ---------- */
+  .sum {
+    padding: 18px 22px 20px;
+    background: #0d0e10;
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .sum[hidden] {
+    display: none;
+  }
+  .sum dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sum dl div + div {
+    margin-top: 4px;
+  }
+  .sum dt {
+    font-weight: 600;
+  }
+  .sum dd b {
+    font-size: 1.35rem;
+    font-weight: 700;
+    font-stretch: 110%;
+    font-variant-numeric: tabular-nums;
+  }
+  .sum .small {
+    font-size: 13px;
+    color: rgb(255 255 255 / 0.55);
+  }
+  .sum .small dt {
+    font-weight: 400;
+  }
+  .checkout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 54px;
+    margin-top: 16px;
+    padding: 0 20px;
+    font-weight: 700;
+    color: #000;
+    background: var(--color-gold);
+    transition:
+      background-color 200ms ease,
+      transform 160ms ease-out;
+  }
+  .checkout:hover {
+    background: #c29a5f;
+  }
+  .checkout:active {
+    transform: scale(0.98);
+  }
+  .go {
+    transition: transform 300ms var(--ease-out-strong);
+  }
+  .checkout:hover .go {
+    transform: translateX(4px);
+  }
+  .note {
+    margin-top: 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: rgb(255 255 255 / 0.5);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .case {
+      transform: none;
+      opacity: 0;
+      transition: opacity 200ms ease;
+    }
+    .cart.is-open .case {
+      opacity: 1;
+    }
+  }
+</style>
+
+<!-- The drone that carries a product to the cart (cloned for each flight). -->
+<template data-courier>
+  <div class="courier" aria-hidden="true">
+    <svg viewBox="0 0 64 28" class="courier-drone">
+      <path d="M8 8h18M38 8h18" stroke="#111" stroke-width="2.5" stroke-linecap="round"></path>
+      <rect x="22" y="6" width="20" height="10" rx="4" fill="#1d1f23"></rect>
+      <path d="M32 16v8" stroke="#111" stroke-width="1.5"></path>
+      <ellipse cx="9" cy="5" rx="8" ry="2" fill="rgb(0 0 0 / 0.35)" class="courier-prop"></ellipse>
+      <ellipse cx="55" cy="5" rx="8" ry="2" fill="rgb(0 0 0 / 0.35)" class="courier-prop"></ellipse>
+    </svg>
+    <img alt="" class="courier-load" />
+  </div>
+</template>
+
+<style is:global>
+  .courier {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 70;
+    display: grid;
+    justify-items: center;
+    width: 76px;
+    pointer-events: none;
+  }
+  .courier-drone {
+    width: 76px;
+    height: auto;
+  }
+  .courier-load {
+    width: 58px;
+    height: 58px;
+    margin-top: -2px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 20px -6px rgb(0 0 0 / 0.45);
+  }
+  .courier-prop {
+    animation: courier-prop 90ms linear infinite alternate;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes courier-prop {
+    to {
+      transform: scaleX(0.4);
+    }
+  }
+</style>
+
+<script>
+  import { add, count, lines, orderHref, setQty, total, MAX_QTY, type CartItem, type CartLine } from '../../lib/cart';
+
+  const dialog = document.querySelector<HTMLDialogElement>('[data-cart]')!;
+  const list = dialog.querySelector<HTMLUListElement>('[data-cart-lines]')!;
+  const empty = dialog.querySelector<HTMLElement>('[data-cart-empty]')!;
+  const sum = dialog.querySelector<HTMLElement>('[data-cart-sum]')!;
+  const added = dialog.querySelector<HTMLElement>('[data-cart-added]')!;
+  const suggest = dialog.querySelector<HTMLElement>('[data-cart-suggest]')!;
+  const suggestList = suggest.querySelector<HTMLUListElement>('[data-suggest-list]')!;
+  const checkout = dialog.querySelector<HTMLAnchorElement>('[data-cart-checkout]')!;
+  const contact = dialog.dataset.contact!;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+  const fmt = (n: number) => euro.format(n).replace(/ | /g, ' ');
+  const plural = (n: number) => `${n} article${n > 1 ? 's' : ''}`;
+
+  let suggestions: CartItem[] = [];
+  let fresh = '';
+
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  };
+
+  function renderLine(l: CartLine) {
+    const li = el('li', `line${l.slug === fresh ? ' is-new' : ''}`);
+    const slot = el('a', 'slot');
+    slot.href = l.url;
+    slot.tabIndex = -1;
+    if (l.image) {
+      const img = el('img');
+      img.src = l.image;
+      img.alt = '';
+      slot.append(img);
+    }
+    const info = el('div', 'info');
+    const name = el('a', 'name', l.name);
+    name.href = l.url;
+    const unit = el('span', 'unit', `${fmt(l.price)} TTC l’unité`);
+    const row = el('div', 'row');
+    const qty = el('div', 'qty');
+    qty.setAttribute('role', 'group');
+    qty.setAttribute('aria-label', `Quantité de ${l.name}`);
+    const minus = el('button', '', '−');
+    minus.type = 'button';
+    minus.setAttribute('aria-label', 'Retirer un');
+    minus.onclick = () => setQty(l.slug, l.qty - 1);
+    const out = el('output', '', String(l.qty));
+    const plus = el('button', '', '+');
+    plus.type = 'button';
+    plus.setAttribute('aria-label', 'Ajouter un');
+    plus.disabled = l.qty >= MAX_QTY;
+    plus.onclick = () => setQty(l.slug, l.qty + 1);
+    qty.append(minus, out, plus);
+    row.append(qty, el('span', 'line-total', fmt(l.price * l.qty)));
+    const remove = el('button', 'remove', 'Retirer');
+    remove.type = 'button';
+    remove.onclick = () => setQty(l.slug, 0);
+    info.append(name, unit, remove, row);
+    li.append(slot, info);
+    return li;
+  }
+
+  function renderSuggestions(all: CartLine[]) {
+    const left = suggestions.filter((s) => !all.some((l) => l.slug === s.slug)).slice(0, 3);
+    suggest.hidden = !left.length || !all.length;
+    suggestList.replaceChildren(
+      ...left.map((s) => {
+        const li = el('li');
+        const img = el('img');
+        img.src = s.image ?? '';
+        img.alt = '';
+        const txt = el('a', 's-name', s.name);
+        txt.href = s.url;
+        txt.append(el('span', 's-price', `${fmt(s.price)} TTC`));
+        const b = el('button', 's-add', '+');
+        b.type = 'button';
+        b.setAttribute('aria-label', `Ajouter ${s.name} au panier`);
+        b.onclick = () => {
+          fresh = s.slug;
+          dialog.querySelector('[data-added-name]')!.textContent = s.name;
+          added.hidden = false;
+          add(s);
+        };
+        li.append(img, txt, b);
+        return li;
+      }),
+    );
+  }
+
+  function render() {
+    const all = lines();
+    const n = count(all);
+    list.replaceChildren(...all.map(renderLine));
+    empty.hidden = all.length > 0;
+    sum.hidden = all.length === 0;
+    dialog.querySelector('[data-cart-n]')!.textContent = plural(n);
+    dialog.querySelector('[data-cart-total]')!.textContent = fmt(total(all));
+    dialog.querySelector('[data-cart-vat]')!.textContent = fmt(total(all) - total(all) / 1.2);
+    checkout.href = orderHref(contact, all);
+    renderSuggestions(all);
+    document.querySelectorAll<HTMLElement>('[data-cart-count]').forEach((c) => {
+      c.textContent = String(n);
+      c.hidden = n === 0;
+    });
+    document.querySelectorAll<HTMLElement>('[data-cart-open]').forEach((b) => b.setAttribute('aria-label', `Panier, ${plural(n)}`));
+    fresh = '';
+  }
+
+  // ----- Open / close -----
+  let closing = 0;
+  function open() {
+    clearTimeout(closing);
+    if (!dialog.open) dialog.showModal();
+    requestAnimationFrame(() => dialog.classList.add('is-open'));
+    document.documentElement.style.overflow = 'hidden';
+  }
+  function close() {
+    dialog.classList.remove('is-open');
+    closing = window.setTimeout(
+      () => {
+        dialog.close();
+        added.hidden = true;
+      },
+      still ? 200 : 420,
+    );
+    document.documentElement.style.overflow = '';
+  }
+  dialog.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    close();
+  });
+  dialog.querySelectorAll('[data-cart-close]').forEach((b) => b.addEventListener('click', close));
+
+  // ----- The drone flight to the cart -----
+  async function fly(from: Element | null, image?: string) {
+    const target = [...document.querySelectorAll<HTMLElement>('[data-cart-open]')].find((b) => b.offsetParent !== null);
+    if (still || !from || !target || !image) return;
+    const a = from.getBoundingClientRect();
+    const b = target.getBoundingClientRect();
+    if (!a.width || a.bottom < 0 || a.top > innerHeight) return;
+    const tpl = document.querySelector<HTMLTemplateElement>('[data-courier]')!;
+    const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    node.querySelector('img')!.src = image;
+    document.body.append(node);
+    const x0 = a.left + a.width / 2 - 38;
+    const y0 = a.top + a.height / 2 - 40;
+    const x1 = b.left + b.width / 2 - 38;
+    const y1 = b.top + b.height / 2 - 30;
+    const lift = Math.min(y0, y1) - 120;
+    // Take-off (rises with the load), arc to the cart, then a quick dip to drop it.
+    const anim = node.animate(
+      [
+        { transform: `translate(${x0}px, ${y0}px) scale(0.6) rotate(0deg)`, opacity: 0 },
+        { transform: `translate(${x0}px, ${y0 - 40}px) scale(1) rotate(-4deg)`, opacity: 1, offset: 0.18 },
+        { transform: `translate(${(x0 + x1) / 2}px, ${lift}px) scale(0.9) rotate(${x1 > x0 ? 8 : -8}deg)`, offset: 0.55 },
+        { transform: `translate(${x1}px, ${y1 - 10}px) scale(0.6) rotate(0deg)`, opacity: 1, offset: 0.88 },
+        { transform: `translate(${x1}px, ${y1}px) scale(0.3)`, opacity: 0 },
+      ],
+      { duration: 1100, easing: 'cubic-bezier(0.45, 0, 0.25, 1)' },
+    );
+    await anim.finished.catch(() => {});
+    node.remove();
+    target.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+  }
+
+  // ----- Add buttons, anywhere in the page -----
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as Element).closest<HTMLElement>('[data-cart-add]');
+    if (btn) {
+      e.preventDefault();
+      const item = JSON.parse(btn.dataset.cartItem!) as CartItem;
+      const qtyInput = btn.dataset.cartQty ? document.querySelector<HTMLInputElement>(btn.dataset.cartQty) : null;
+      const qty = Math.max(1, Math.min(MAX_QTY, Number(qtyInput?.value) || 1));
+      suggestions = btn.dataset.cartSuggest ? JSON.parse(btn.dataset.cartSuggest) : [];
+      btn.setAttribute('aria-busy', 'true');
+      const source = btn.dataset.cartSource ? document.querySelector(btn.dataset.cartSource) : null;
+      await fly(source, item.image);
+      fresh = item.slug;
+      add(item, qty);
+      dialog.querySelector('[data-added-name]')!.textContent = item.name;
+      added.hidden = false;
+      btn.removeAttribute('aria-busy');
+      open();
+      return;
+    }
+    if ((e.target as Element).closest('[data-cart-open]')) {
+      e.preventDefault();
+      added.hidden = true;
+      open();
+    }
+  });
+
+  window.addEventListener('ldl:cart', render);
+  // Another tab changed the cart.
+  window.addEventListener('storage', (e) => e.key === 'ldl-cart' && render());
+  render();
+</script>

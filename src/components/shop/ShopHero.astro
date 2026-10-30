@@ -1,0 +1,599 @@
+---
+// /boutique/ opening, after the current shop: a big search field, then the mega menu —
+// five tabs (Grand public, Drones pro, Par réglementation, Capteurs, Accessoires), each
+// showing its categories as visual tiles, plus Pop's "need help choosing?" card. The
+// first tab is open on arrival so every category is one click away. Tiles filter the
+// catalogue below. Without JavaScript all panels are shown one after the other.
+import Square from '../ui/Square.astro';
+import SearchBox from './SearchBox.astro';
+import { Image } from 'astro:assets';
+import popSupport from '../../assets/pop/support.webp';
+import { SHOP_MENU, forSale } from '../../data/catalog';
+import { productPhoto } from '../../lib/product-photo';
+import { OCTOBRE_ROSE, isCampaignOn } from '../../data/campaign';
+
+// Octobre Rose: the black band turns pink and shows the donation, until the end date.
+const rose = isCampaignOn(OCTOBRE_ROSE.until);
+// The awareness ribbon, drawn with three strokes (back tail, loop, front tail).
+const ribbon = { back: 'M50 56 L80 128', loop: 'M50 56 C24 26 34 6 50 6 C66 6 76 26 50 56', front: 'M50 56 L20 128' };
+
+const tabs = await Promise.all(
+  SHOP_MENU.map(async (tab) => ({
+    ...tab,
+    tiles: (
+      await Promise.all(
+        tab.tiles.map(async (tile) => {
+          const items = forSale.filter(tile.match);
+          // The tile shows the most representative product: the first with a photo.
+          const photo = items.length ? await productPhoto(items[0], 1) : null;
+          return { ...tile, count: items.length, photo };
+        }),
+      )
+    ).filter((t) => t.count > 0),
+  })),
+);
+---
+
+<section class="shop-hero" aria-labelledby="shop-title">
+  <div class:list={['top', rose && 'is-rose']} data-rose-until={rose ? OCTOBRE_ROSE.until : undefined}>
+    {
+      rose && (
+        <div class="ribbons" aria-hidden="true">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <svg viewBox="0 0 100 136" class="float" style={{ '--n': i }}>
+              <path d={ribbon.back} />
+              <path d={ribbon.loop} />
+              <path d={ribbon.front} />
+            </svg>
+          ))}
+        </div>
+      )
+    }
+    <div class="wrap top-grid">
+      <div class="top-main">
+      <nav aria-label="Fil d’Ariane" class="hud-text crumbs">
+        <a href="/">Accueil</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Boutique</span>
+      </nav>
+      <div class="head">
+        <h1 id="shop-title" class="display flex items-start gap-4 text-[clamp(2rem,3.6vw,3.3rem)]">
+          <Square color={rose ? 'var(--rose)' : 'var(--color-paper)'} class="mt-[0.2em] size-[0.3em] shrink-0" />
+          Boutique drones et accessoires
+        </h1>
+        <p class="lead">Le matériel que nous utilisons en mission, conseillé par des télépilotes. Prix TTC et HT.</p>
+      </div>
+      <SearchBox types={['vente']} placeholder="Mavic 4 Pro, batterie Mini 5, kit C5…" action="/boutique/" />
+      </div>
+
+      {
+        rose && (
+          <aside class="rose" aria-labelledby="rose-title" data-rose>
+            <svg viewBox="0 0 100 136" class="rose-ribbon" aria-hidden="true">
+              <path d={ribbon.back} />
+              <path d={ribbon.loop} />
+              <path d={ribbon.front} />
+            </svg>
+            <p class="rose-kicker hud-text" id="rose-title">
+              {OCTOBRE_ROSE.label}
+            </p>
+            <p class="rose-amount">
+              {OCTOBRE_ROSE.amount}
+              <span class="rose-heart" aria-hidden="true">
+                ♥
+              </span>
+            </p>
+            <p class="rose-text">{OCTOBRE_ROSE.text}</p>
+            <p class="rose-note hud-text">{OCTOBRE_ROSE.note}</p>
+            <a class="rose-link" href={OCTOBRE_ROSE.link.href}>
+              {OCTOBRE_ROSE.link.label}
+              <span aria-hidden="true">→</span>
+            </a>
+          </aside>
+        )
+      }
+    </div>
+  </div>
+
+  <div class="menu" data-mega>
+    <div class="wrap">
+      <div class="tabs" role="tablist" aria-label="Catégories de la boutique">
+        {
+          tabs.map((tab, i) => (
+            <button type="button" role="tab" id={`tab-${tab.id}`} aria-controls={`panel-${tab.id}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>
+              {tab.label}
+            </button>
+          ))
+        }
+        <span class="tab-bar" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <div class="panels wrap">
+      {
+        tabs.map((tab, i) => (
+          <div class="panel" role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} data-active={i === 0 || undefined}>
+            <ul class="tiles">
+              {tab.tiles.map((tile, k) => (
+                <li style={{ '--k': k }}>
+                  <a class="tile" href={`/boutique/?filtre=${tile.id}#catalogue`} data-goto-filter={tile.id}>
+                    <span class="tile-img">
+                      {tile.photo && <img src={tile.photo.src} srcset={tile.photo.srcset} sizes="140px" alt="" loading="lazy" decoding="async" />}
+                    </span>
+                    <span class="tile-body">
+                      <span class="tile-name">{tile.label}</span>
+                      <span class="tile-text">{tile.text}</span>
+                      <span class="tile-count hud-text">
+                        {tile.count} produit{tile.count > 1 ? 's' : ''}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+              <li class="help" style={{ '--k': tab.tiles.length }}>
+                <button type="button" class="help-card" data-pop-open data-pop-ask="Quel drone choisir ?">
+                  <span class="help-title">Besoin d’aide pour choisir ?</span>
+                  <span class="help-text">Pop vous pose trois questions et vous oriente.</span>
+                  <Image src={popSupport} alt="" width={150} densities={[1, 2]} class="help-pop" />
+                </button>
+              </li>
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .shop-hero {
+    background: var(--color-mist);
+  }
+  .top {
+    position: relative;
+    overflow: hidden;
+    padding: 104px 0 36px;
+    background:
+      radial-gradient(ellipse at 80% 0%, rgb(175 133 74 / 0.22), transparent 55%),
+      var(--color-ink);
+    color: #fff;
+  }
+  .top-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 28px 56px;
+    align-items: end;
+  }
+  .top-main {
+    min-width: 0;
+  }
+
+  /* ---------- Octobre Rose ---------- */
+  .top.is-rose {
+    --rose: #ff5ca8;
+    --rose-soft: #ffb6d6;
+    background:
+      radial-gradient(ellipse 50% 70% at 85% 30%, rgb(255 92 168 / 0.32), transparent 70%),
+      radial-gradient(ellipse 40% 60% at 10% 100%, rgb(255 92 168 / 0.16), transparent 70%),
+      linear-gradient(120deg, #0d0308, #1c0613 55%, #2a0a1c);
+  }
+  @media (min-width: 1024px) {
+    .top.is-rose .top-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    }
+  }
+  .is-rose .crumbs a:hover {
+    color: var(--rose-soft);
+  }
+  /* Ribbons drifting up in the background. */
+  .ribbons {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .float {
+    position: absolute;
+    bottom: -140px;
+    left: calc(8% + var(--n) * 16%);
+    width: 30px;
+    opacity: 0.18;
+    transform: rotate(calc(var(--n) * 17deg - 40deg));
+  }
+  .float:nth-child(odd) {
+    width: 22px;
+  }
+  .float:nth-child(3n) {
+    width: 40px;
+  }
+  .float path,
+  .rose-ribbon path {
+    fill: none;
+    stroke: var(--rose);
+    stroke-width: 15;
+    stroke-linecap: round;
+  }
+  .rose-ribbon path:nth-child(2),
+  .float path:nth-child(2) {
+    stroke: var(--rose-soft);
+  }
+
+  .rose {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 26px 28px 24px;
+    background: linear-gradient(160deg, rgb(255 92 168 / 0.18), rgb(255 92 168 / 0.05));
+    border: 1px solid rgb(255 150 200 / 0.4);
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 1px rgb(255 92 168 / 0.08),
+      0 30px 60px -30px rgb(255 92 168 / 0.6);
+  }
+  .rose-ribbon {
+    position: absolute;
+    top: -18px;
+    right: 22px;
+    width: 58px;
+    filter: drop-shadow(0 6px 14px rgb(255 92 168 / 0.6));
+  }
+  .rose-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    color: var(--rose-soft);
+  }
+  .rose-kicker::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--rose);
+  }
+  .rose-amount {
+    position: relative;
+    margin-top: 8px;
+    font-size: clamp(3.4rem, 6vw, 5rem);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    background: linear-gradient(100deg, #fff 0%, var(--rose-soft) 45%, var(--rose) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .rose-heart {
+    position: absolute;
+    top: -6px;
+    right: -26px;
+    font-size: 22px;
+    color: var(--rose);
+    -webkit-text-fill-color: var(--rose);
+  }
+  .rose-text {
+    margin-top: 12px;
+    max-width: 32ch;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .rose-note {
+    margin-top: 10px;
+    color: rgb(255 255 255 / 0.65);
+  }
+  .rose-link {
+    display: inline-flex;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 10px 16px;
+    font-weight: 700;
+    color: #1c0613;
+    background: var(--rose);
+    transition: background-color 200ms ease;
+  }
+  .rose-link span {
+    transition: transform 250ms var(--ease-out-strong);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .rose-link:hover {
+      background: var(--rose-soft);
+    }
+    .rose-link:hover span {
+      transform: translateX(4px);
+    }
+  }
+  .rose-link:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .float {
+      animation: drift calc(16s + var(--n) * 3s) linear infinite;
+      animation-delay: calc(var(--n) * -4.5s);
+    }
+    .rose-heart {
+      animation: beat 1.6s ease-in-out infinite;
+    }
+    .rose-ribbon {
+      animation: sway 5s ease-in-out infinite alternate;
+    }
+  }
+  @keyframes drift {
+    to {
+      translate: 0 calc(-100% - 640px);
+      rotate: 40deg;
+    }
+  }
+  @keyframes beat {
+    0%,
+    60%,
+    100% {
+      transform: scale(1);
+    }
+    20% {
+      transform: scale(1.25);
+    }
+    40% {
+      transform: scale(0.95);
+    }
+  }
+  @keyframes sway {
+    from {
+      rotate: -6deg;
+    }
+    to {
+      rotate: 6deg;
+    }
+  }
+  .crumbs {
+    display: flex;
+    gap: 10px;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 40px;
+    margin: 14px 0 28px;
+  }
+  .lead {
+    max-width: 40ch;
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  /* ---------- Tabs ---------- */
+  .menu {
+    background: var(--color-paper);
+    border-bottom: 1px solid var(--color-line);
+  }
+  .tabs {
+    position: relative;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs button {
+    flex-shrink: 0;
+    min-height: 58px;
+    padding: 0 18px;
+    font-weight: 700;
+    color: var(--color-muted);
+    transition: color 200ms ease;
+  }
+  .tabs button[aria-selected='true'] {
+    color: var(--color-ink);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tabs button:hover {
+      color: var(--color-ink);
+    }
+  }
+  .tabs button:focus-visible {
+    outline-offset: -4px;
+  }
+  .tab-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: var(--w, 0);
+    background: var(--color-gold);
+    transform: translateX(var(--x, 0));
+    transition:
+      transform 400ms var(--ease-out-strong),
+      width 400ms var(--ease-out-strong);
+  }
+
+  /* ---------- Panels ---------- */
+  .panels {
+    position: relative;
+    padding-block: 24px 32px;
+  }
+  .panel {
+    display: none;
+  }
+  .panel[data-active] {
+    display: block;
+  }
+  :global(html:not(.js)) .panel {
+    display: block;
+    margin-bottom: 24px;
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+  }
+  .panel[data-active] .tiles > li {
+    animation: tile-in 450ms var(--ease-out-strong) backwards;
+    animation-delay: calc(var(--k) * 40ms);
+  }
+  @keyframes tile-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  .tile {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 14px;
+    align-items: center;
+    height: 100%;
+    padding: 12px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    transition:
+      border-color 200ms ease,
+      transform 300ms var(--ease-out-strong);
+  }
+  .tile-img {
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+  .tile-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 500ms var(--ease-out-strong);
+  }
+  .tile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .tile-name {
+    font-weight: 700;
+    font-stretch: 112%;
+  }
+  .tile-text {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--color-ink-soft);
+  }
+  .tile-count {
+    margin-top: 4px;
+    color: var(--color-gold-deep);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tile:hover {
+      border-color: var(--color-ink);
+      transform: translateY(-2px);
+    }
+    .tile:hover .tile-img img {
+      transform: scale(1.08);
+    }
+  }
+
+  /* Pop's help card, like the "Besoin d'aide pour choisir ?" card of the current site. */
+  .help-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    height: 100%;
+    min-height: 122px;
+    padding: 16px 130px 16px 18px;
+    overflow: hidden;
+    text-align: left;
+    color: #fff;
+    background: var(--color-ink);
+    transition: background-color 200ms ease;
+  }
+  .help-title {
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.2;
+  }
+  .help-text {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: rgb(255 255 255 / 0.7);
+  }
+  .help-pop {
+    position: absolute;
+    right: -6px;
+    bottom: -10px;
+    width: 130px;
+    height: auto;
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .help-card:hover {
+      background: #1c1c1c;
+    }
+    .help-card:hover .help-pop {
+      transform: translateY(-6px) rotate(-3deg);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .tile {
+      grid-template-columns: 72px 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel[data-active] .tiles > li {
+      animation: none;
+    }
+    .tile,
+    .tile-img img,
+    .help-pop,
+    .tab-bar {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Octobre Rose ends by itself: a page built during the campaign drops it afterwards.
+  document.querySelectorAll<HTMLElement>('[data-rose-until]').forEach((top) => {
+    if (Date.now() > new Date(`${top.dataset.roseUntil}T23:59:59`).getTime()) {
+      top.classList.remove('is-rose');
+      top.querySelectorAll('[data-rose], .ribbons').forEach((el) => el.remove());
+    }
+  });
+
+  // Tabs with keyboard support (arrows, Home, End) and a sliding gold bar.
+  document.querySelectorAll<HTMLElement>('[data-mega]').forEach((mega) => {
+    const tabs = [...mega.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+    const panels = [...mega.querySelectorAll<HTMLElement>('[role=tabpanel]')];
+    const bar = mega.querySelector<HTMLElement>('.tab-bar')!;
+    const place = (tab: HTMLElement) => {
+      bar.style.setProperty('--x', `${tab.offsetLeft}px`);
+      bar.style.setProperty('--w', `${tab.offsetWidth}px`);
+    };
+    const select = (i: number, focus = false) => {
+      tabs.forEach((t, k) => {
+        t.setAttribute('aria-selected', String(k === i));
+        t.tabIndex = k === i ? 0 : -1;
+      });
+      panels.forEach((p, k) => p.toggleAttribute('data-active', k === i));
+      place(tabs[i]);
+      if (focus) tabs[i].focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => select(i));
+      // Hovering a tab opens it, like a mega menu (only with a real pointer).
+      t.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && select(i));
+      t.addEventListener('keydown', (e) => {
+        const n = tabs.length;
+        const to = { ArrowRight: (i + 1) % n, ArrowLeft: (i - 1 + n) % n, Home: 0, End: n - 1 }[e.key];
+        if (to !== undefined) {
+          e.preventDefault();
+          select(to, true);
+        }
+      });
+    });
+    place(tabs[0]);
+    addEventListener('resize', () => place(tabs.find((t) => t.getAttribute('aria-selected') === 'true')!));
+  });
+</script>

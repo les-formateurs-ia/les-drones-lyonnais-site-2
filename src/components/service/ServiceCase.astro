@@ -1,0 +1,273 @@
+---
+// One mission, told as the document of the trade:
+// - Technique: a mission report (header strip with reference, three fields).
+// - Artistique: a clapperboard. The clapper sticks close when the slate comes into view.
+// The client's words, when there are some, follow as a quote.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import type { ServiceFamily } from '../../data/services';
+import type { ServicePage } from '../../data/service-pages';
+
+interface Props {
+  family: ServiceFamily;
+  study: NonNullable<ServicePage['caseStudy']>;
+  photo?: ImageMetadata;
+  /** Short label of the service, written on the slate / report. */
+  label: string;
+}
+const { family, study, photo, label } = Astro.props;
+const tech = family === 'technique';
+const fields = tech
+  ? [
+      ['Contexte', study.brief],
+      ['Mission', study.mission],
+      ['Résultat', study.result],
+    ]
+  : [
+      ['Le brief', study.brief],
+      ['Le tournage', study.mission],
+      ['Le résultat', study.result],
+    ];
+---
+
+<section class="case section-pad bg-mist" aria-labelledby="case-title">
+  <div class="wrap grid">
+    <div class="side" data-reveal>
+      <p class="kicker hud-text">{study.label}</p>
+      <h2 id="case-title" class="display">{study.title}</h2>
+      {
+        photo && (
+          <div class="photo viewfinder">
+            <Image src={photo} alt="" widths={[480, 720, 960]} sizes="(min-width: 1024px) 34vw, 92vw" />
+          </div>
+        )
+      }
+    </div>
+
+    <div class:list={['doc', tech ? 'is-report' : 'is-slate']} data-reveal style={{ '--i': 1 }} data-doc>
+      {
+        tech ? (
+          <div class="doc-head hud-text">
+            <span>Rapport de mission</span>
+            <span>{label}</span>
+            <span class="ok">● Mission validée</span>
+          </div>
+        ) : (
+          <div class="clapper" aria-hidden="true">
+            <span class="stick top" />
+            <span class="stick" />
+          </div>
+        )
+      }
+      {
+        !tech && (
+          <div class="slate-row hud-text" aria-hidden="true">
+            <span>
+              Prod. <b>Les Drones Lyonnais</b>
+            </span>
+            <span>
+              Scène <b>{label}</b>
+            </span>
+            <span>
+              Prise <b>01</b>
+            </span>
+          </div>
+        )
+      }
+      <dl class="fields">
+        {
+          fields.map(([k, v], i) => (
+            <div style={{ '--k': i }}>
+              <dt class="hud-text">
+                {String(i + 1).padStart(2, '0')} · {k}
+              </dt>
+              <dd>{v}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      {
+        study.quote && (
+          <blockquote class="quote">
+            <p>« {study.quote} »</p>
+            <footer class="hud-text">Le client</footer>
+          </blockquote>
+        )
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    gap: 40px 64px;
+    align-items: start;
+  }
+  @media (min-width: 1024px) {
+    .grid {
+      grid-template-columns: 5fr 7fr;
+    }
+  }
+  .kicker {
+    text-transform: uppercase;
+    color: var(--color-gold-deep);
+  }
+  h2 {
+    margin-top: 10px;
+    font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+  }
+  .photo {
+    margin-top: 28px;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #111;
+  }
+  .photo :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .doc {
+    position: relative;
+    background: #fff;
+    box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.45);
+  }
+  /* ---------- Mission report ---------- */
+  .doc-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 16px;
+    padding: 14px 24px;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--color-prestations);
+  }
+  .ok {
+    color: #9fe3a8;
+  }
+  .fields {
+    display: grid;
+  }
+  .fields div {
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .is-report .fields {
+    background:
+      linear-gradient(rgb(8 53 189 / 0.05) 1px, transparent 1px) 0 0 / 100% 28px;
+  }
+  dt {
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  dd {
+    margin-top: 6px;
+    font-size: 1.12rem;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+  .quote {
+    padding: 26px 24px 28px;
+  }
+  .quote p {
+    font-size: clamp(1.2rem, 1.8vw, 1.45rem);
+    font-weight: 600;
+    font-stretch: 105%;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+  .quote footer {
+    margin-top: 12px;
+    text-transform: uppercase;
+    color: var(--color-gold-deep);
+  }
+
+  /* ---------- Clapperboard ---------- */
+  .is-slate {
+    color: #fff;
+    background: #141414;
+  }
+  .clapper {
+    position: relative;
+    height: 64px;
+  }
+  .stick {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: repeating-linear-gradient(-55deg, #f2f2f2 0 26px, #141414 26px 52px);
+    border: 2px solid #141414;
+  }
+  .stick:not(.top) {
+    bottom: 0;
+  }
+  .stick.top {
+    top: 0;
+    transform-origin: 0 100%;
+    background: repeating-linear-gradient(55deg, #f2f2f2 0 26px, #141414 26px 52px);
+  }
+  .slate-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1.4fr 0.6fr;
+    border-bottom: 1px solid rgb(255 255 255 / 0.2);
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.55);
+  }
+  .slate-row span {
+    padding: 14px 24px;
+  }
+  .slate-row span + span {
+    border-left: 1px solid rgb(255 255 255 / 0.2);
+  }
+  .slate-row b {
+    display: block;
+    margin-top: 2px;
+    font-size: 15px;
+    color: #fff;
+  }
+  .is-slate .fields div {
+    border-color: rgb(255 255 255 / 0.2);
+  }
+  .is-slate dt {
+    color: var(--color-gold);
+  }
+  .is-slate .quote footer {
+    color: var(--color-gold);
+  }
+  @media (max-width: 640px) {
+    .slate-row {
+      grid-template-columns: 1fr 1fr;
+    }
+    .slate-row span:last-child {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .stick.top {
+      rotate: -18deg;
+      transition: rotate 260ms cubic-bezier(0.55, 0, 0.9, 0.4) 500ms;
+    }
+    .doc.is-in .stick.top {
+      rotate: 0deg;
+    }
+    .doc.is-in .clapper {
+      animation: clap 300ms ease-out 760ms;
+    }
+    .fields div {
+      transition: opacity 600ms ease calc(700ms + var(--k) * 140ms);
+    }
+    :global(.js) .doc:not(.is-in) .fields div {
+      opacity: 0;
+    }
+  }
+  @keyframes clap {
+    40% {
+      transform: translateY(2px);
+    }
+  }
+</style>

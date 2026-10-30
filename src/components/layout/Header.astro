@@ -1,0 +1,276 @@
+---
+import { Image } from 'astro:assets';
+import logoDark from '../../assets/brand/logo-noir.png';
+import logoLight from '../../assets/brand/logo-blanc-or.png';
+import Square from '../ui/Square.astro';
+import Button from '../ui/Button.astro';
+import { NAV, SITE } from '../../data/site';
+
+interface Props {
+  /** Transparent over a full-screen hero, turning solid once the hero is scrolled past. */
+  overlay?: boolean;
+  /** Hide the menu while over the hero (homepage: the hero is the menu). */
+  compact?: boolean;
+}
+const { overlay = false, compact = false } = Astro.props;
+
+// The shop's square is black: it follows the text colour so it shows on photos too.
+const squareColor = (id: string, color: string) => (id === 'boutique' ? 'currentColor' : color);
+---
+
+<header class="site-header" data-overlay={overlay || undefined} data-compact={(overlay && compact) || undefined}>
+  <div class="header-inner wrap flex h-[72px] items-center justify-between gap-6">
+    <a href="/" class="logo relative block h-9 shrink-0" aria-label={`${SITE.name}, accueil`}>
+      <Image src={overlay ? logoLight : logoDark} alt="" height={36} densities={[1, 2]} loading="eager" class="h-9 w-auto" />
+    </a>
+
+    <nav aria-label="Navigation principale" class="main-nav hidden md:block">
+      <ul class="flex items-center gap-7">
+        {
+          NAV.map((item) => (
+            <li>
+              <a href={item.href} class="nav-link flex items-center gap-2 py-2 text-[15px] font-medium">
+                <Square color={squareColor(item.id, item.color)} />
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <div class="flex items-center gap-2 md:gap-5">
+    <div class="hidden items-center gap-5 md:flex">
+      <a href={SITE.phoneHref} class="phone hidden text-[15px] font-medium tabular-nums lg:inline">{SITE.phone}</a>
+      <Button href={SITE.contactPath} variant="gold" size="sm">Demander un devis</Button>
+    </div>
+
+    <!-- Cart (CartDrawer): a small flight case, with the number of items. -->
+    <button type="button" class="cart-btn" data-cart-open aria-label="Panier, 0 article">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6" />
+        <rect x="3" y="6" width="18" height="14" rx="2" />
+        <path d="M3 12h18M8 10.5v3M16 10.5v3" />
+      </svg>
+      <span class="cart-count" data-cart-count hidden>0</span>
+    </button>
+
+    <!-- Mobile menu: a native disclosure, no script needed. -->
+    <details class="menu md:hidden">
+      <summary class="flex size-11 cursor-pointer items-center justify-center" aria-label="Menu">
+        <span class="burger" aria-hidden="true"></span>
+      </summary>
+      <div class="menu-panel absolute inset-x-0 top-full border-b border-line bg-paper text-ink">
+        <ul class="wrap py-2">
+          {
+            NAV.map((item) => (
+              <li class="border-b border-line last:border-0">
+                <a href={item.href} class="flex items-center gap-3 py-4 text-lg font-medium">
+                  <Square color={item.color} />
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+        <div class="wrap flex flex-col gap-3 pb-6">
+          <Button href={SITE.contactPath}>Demander un devis</Button>
+          <Button href={SITE.phoneHref} variant="outline">Appeler le {SITE.phone}</Button>
+        </div>
+      </div>
+    </details>
+    </div>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: relative;
+    z-index: 30;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  /* Over the hero: transparent, white text, gold-and-white logo. */
+  .site-header[data-overlay] {
+    position: absolute;
+    inset: 0 0 auto;
+    background: rgb(255 255 255 / 0);
+    color: #fff;
+    border-bottom-color: rgb(255 255 255 / 0);
+  }
+
+  /* Where scroll-driven animations exist, the header stays on screen and turns into a
+     dark bar as the hero hands over to the page. Elsewhere it scrolls away with the hero. */
+  @supports (animation-timeline: scroll()) {
+    .site-header[data-overlay] {
+      position: fixed;
+      animation-name: header-solid;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root);
+      animation-range: calc(60svh) calc(100svh - 72px);
+    }
+  }
+  /* Over the hero the four activities are already the whole screen: the menu waits
+     until the header turns into a bar, then fades in. */
+  .site-header[data-compact] .main-nav {
+    opacity: 0;
+    visibility: hidden;
+  }
+  @supports (animation-timeline: scroll()) {
+    .site-header[data-compact] .main-nav {
+      animation-name: nav-in;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root);
+      animation-range: calc(70svh) calc(100svh - 72px);
+    }
+  }
+  @keyframes nav-in {
+    from {
+      opacity: 0;
+      visibility: hidden;
+    }
+    to {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  @keyframes header-solid {
+    to {
+      background: rgb(0 0 0 / 0.78);
+      border-bottom-color: rgb(255 255 255 / 0.08);
+      backdrop-filter: blur(14px) saturate(1.4);
+    }
+  }
+
+  /* Arrives with the hero's opening, after the photos. */
+  @media (prefers-reduced-motion: no-preference) {
+    .site-header[data-overlay] .header-inner {
+      animation: header-in 700ms var(--ease-out-strong) 650ms both;
+    }
+  }
+  @keyframes header-in {
+    from {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+  }
+
+  .nav-link {
+    background: linear-gradient(var(--color-gold), var(--color-gold)) no-repeat left bottom / 0 1px;
+    transition: background-size 200ms var(--ease-out-strong);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-link:hover {
+      background-size: 100% 1px;
+    }
+    .phone:hover {
+      color: var(--color-gold);
+    }
+  }
+
+  .cart-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+  }
+  .cart-btn svg {
+    width: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+  }
+  .cart-count {
+    position: absolute;
+    top: 3px;
+    right: 1px;
+    display: grid;
+    place-items: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #000;
+    background: var(--color-gold);
+    border-radius: 999px;
+  }
+  .cart-count[hidden] {
+    display: none;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .cart-btn:hover {
+      color: var(--color-gold);
+    }
+  }
+
+  .menu summary {
+    list-style: none;
+  }
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .burger,
+  .burger::before,
+  .burger::after {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: currentColor;
+    transition:
+      transform 200ms var(--ease-out-strong),
+      opacity 150ms ease-out;
+  }
+  .burger {
+    position: relative;
+  }
+  .burger::before,
+  .burger::after {
+    content: '';
+    position: absolute;
+    left: 0;
+  }
+  .burger::before {
+    transform: translateY(-7px);
+  }
+  .burger::after {
+    transform: translateY(7px);
+  }
+  .menu[open] .burger {
+    background: transparent;
+  }
+  .menu[open] .burger::before {
+    transform: rotate(45deg);
+  }
+  .menu[open] .burger::after {
+    transform: rotate(-45deg);
+  }
+  .menu[open] .menu-panel {
+    animation: menu-in 200ms var(--ease-out-strong);
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .burger,
+    .burger::before,
+    .burger::after {
+      transition: none;
+    }
+    .menu[open] .menu-panel {
+      animation: none;
+    }
+  }
+</style>

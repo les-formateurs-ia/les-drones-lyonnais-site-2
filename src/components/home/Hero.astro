@@ -1,0 +1,605 @@
+---
+// The first screen: a drone in real time in the middle of the page, and the four modes
+// of the site under it (Prestations, Boutique, Location, Formations). Choosing a mode
+// changes the drone's set and flight (lib/hero-drone.ts), the texts and labels around
+// it, and the rest of the homepage (html[data-mode], lib/mode.ts).
+// The page works without WebGL or JavaScript: texts and links are plain HTML, the
+// drone is an enhancement loaded after the first paint.
+import Button from '../ui/Button.astro';
+import Square from '../ui/Square.astro';
+import { HERO } from '../../data/home';
+import { MODE_LIST } from '../../data/modes';
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="stage">
+    <canvas class="drone" data-drone aria-hidden="true"></canvas>
+    <div class="callouts" aria-hidden="true">
+      {
+        MODE_LIST.map((m) =>
+          m.callouts.map((c, i) => (
+            <div class="callout" data-for={m.id} data-anchor={c.anchor} style={{ '--i': i + 3 }}>
+              <span class="dot" />
+              <span class="line" />
+              <span class="tag">
+                <b>{c.title}</b>
+                <span>{c.text}</span>
+              </span>
+            </div>
+          )),
+        )
+      }
+    </div>
+  </div>
+
+  <div class="copy">
+    <h1 id="hero-title" class="sr-only">{HERO.title}</h1>
+    {
+      MODE_LIST.map((m) => (
+        <div class="copy-mode" data-for={m.id}>
+          <p class="kicker hud-text" style={{ '--i': 0 }}>
+            <Square color="var(--accent)" class="size-[9px]" />
+            {m.kicker}
+          </p>
+          <p class="title display" style={{ '--i': 1 }}>
+            {m.title}
+          </p>
+          <p class="text" style={{ '--i': 2 }}>
+            {m.text}
+          </p>
+          <div class="actions" style={{ '--i': 3 }}>
+            <Button href={m.cta.href} variant="gold">
+              {m.cta.label}
+            </Button>
+            <Button href={m.secondary.href} variant="outline-light" data-pop-open={m.secondary.popAsk ? '' : undefined} data-pop-ask={m.secondary.popAsk}>
+              {m.secondary.label}
+            </Button>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="status hud-text" aria-hidden="true">
+    <span class="status-dot"></span>
+    {
+      MODE_LIST.map((m) => (
+        <span class="status-text" data-for={m.id}>
+          {m.status}
+        </span>
+      ))
+    }
+    <span class="status-drag">· Faites glisser pour tourner le drone</span>
+  </div>
+
+  <!-- The 3D model is CC BY: credit required. -->
+  <p class="credit hud-text">
+    Modèle 3D : <a href="https://sketchfab.com/3d-models/dji-mavic-3-c5a5abae1dea468ab73b1bdc7d616fa6" rel="noopener">DJI Mavic 3</a> par llirikslon, <a href="https://creativecommons.org/licenses/by/4.0/deed.fr" rel="noopener license">CC BY 4.0</a>
+  </p>
+
+  <div class="modes" role="radiogroup" aria-label="Que recherchez-vous ?" data-modes>
+    {
+      MODE_LIST.map((m, i) => (
+        <button type="button" role="radio" class="mode" data-mode-btn={m.id} aria-checked="false" tabindex="-1" style={{ '--c': m.accent }}>
+          <span class="mode-num hud-text">0{i + 1}</span>
+          <span class="mode-label">
+            <Square color={m.accent} class="size-[0.32em]" />
+            {m.label}
+          </span>
+          <span class="mode-hint">{m.hint}</span>
+          <span class="mode-bar" aria-hidden="true" />
+        </button>
+      ))
+    }
+  </div>
+
+  <!-- Darkens as the page scrolls over the hero. -->
+  <div class="shade" aria-hidden="true"></div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    height: 100svh;
+    min-height: 640px;
+    overflow: hidden;
+    background: #050506;
+    color: #fff;
+  }
+
+  /* ---------- Stage: the drone, on a glow of the mode's colour ---------- */
+  .stage {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 55% 45% at 50% 52%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 110%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%),
+      linear-gradient(#000, #070708 60%, #0b0b0d);
+  }
+  .drone {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: pan-y;
+    opacity: 0;
+    transition: opacity 1200ms ease;
+  }
+  .drone[data-ready] {
+    opacity: 1;
+  }
+  .drone[data-dragging] {
+    cursor: grabbing;
+  }
+
+  /* Labels pinned to parts of the drone (positioned by the script). */
+  .callouts {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 600ms ease;
+  }
+  .hero[data-live] .callouts {
+    opacity: 1;
+  }
+  .callout {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+  }
+  .dot {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    margin: -4.5px 0 0 -4.5px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+  .line {
+    position: absolute;
+    height: 1px;
+    width: var(--len, 90px);
+    transform-origin: 0 0;
+    transform: rotate(var(--angle, 0deg));
+    background: linear-gradient(90deg, var(--accent), rgb(255 255 255 / 0.5));
+  }
+  .tag {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: max-content;
+    max-width: 210px;
+    padding: 8px 12px;
+    transform: translate(var(--tx, 0), var(--ty, 0)) translate(var(--side, 0%), -50%);
+    border-left: 2px solid var(--accent);
+    background: rgb(10 10 12 / 0.6);
+    backdrop-filter: blur(10px);
+    font-size: 13px;
+    line-height: 1.3;
+    color: rgb(255 255 255 / 0.7);
+  }
+  .tag b {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  /* ---------- Copy (left) ---------- */
+  .copy {
+    position: absolute;
+    top: 50%;
+    left: clamp(16px, 4.5vw, 72px);
+    z-index: 2;
+    width: min(31rem, 31vw);
+    translate: 0 -56%;
+  }
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.75);
+  }
+  .title {
+    margin-top: 18px;
+    font-size: clamp(2rem, 3.3vw, 3.4rem);
+  }
+  .text {
+    margin-top: 20px;
+    max-width: 40ch;
+    font-size: 17px;
+    line-height: 1.55;
+    color: rgb(255 255 255 / 0.72);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 30px;
+  }
+
+  /* ---------- Status ---------- */
+  .status {
+    position: absolute;
+    right: clamp(16px, 4.5vw, 72px);
+    bottom: calc(clamp(20px, 3.5vh, 36px) + 104px);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  .credit {
+    position: absolute;
+    left: clamp(16px, 4.5vw, 72px);
+    bottom: calc(clamp(20px, 3.5vh, 36px) + 104px);
+    z-index: 2;
+    color: rgb(255 255 255 / 0.4);
+  }
+  .credit a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ---------- Mode selector ---------- */
+  /* Centred under the drone, clear of Pop's button in the bottom right corner. */
+  .modes {
+    position: absolute;
+    bottom: clamp(20px, 3.5vh, 36px);
+    left: 50%;
+    z-index: 3;
+    width: min(1080px, calc(100% - 240px));
+    translate: -50% 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+  }
+  .mode {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 4px 14px;
+    padding: 18px 20px 20px;
+    text-align: left;
+    color: rgb(255 255 255 / 0.55);
+    background: rgb(255 255 255 / 0.03);
+    border-top: 1px solid rgb(255 255 255 / 0.14);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition:
+      color 250ms ease,
+      background-color 250ms ease;
+  }
+  .mode-num {
+    grid-row: span 2;
+  }
+  .mode-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: clamp(1.15rem, 1.6vw, 1.6rem);
+    font-weight: 700;
+    font-stretch: 118%;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .mode-hint {
+    font-size: 14px;
+    color: rgb(255 255 255 / 0.5);
+  }
+  .mode-bar {
+    position: absolute;
+    inset: -1px 0 auto;
+    height: 2px;
+    background: var(--c);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 500ms var(--ease-out-strong);
+  }
+  .mode[aria-checked='true'] {
+    color: #fff;
+    background: rgb(255 255 255 / 0.08);
+  }
+  .mode[aria-checked='true'] .mode-bar {
+    transform: scaleX(1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .mode:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 0.06);
+    }
+    .mode:hover .mode-bar {
+      transform: scaleX(0.25);
+    }
+    .mode[aria-checked='true']:hover .mode-bar {
+      transform: scaleX(1);
+    }
+  }
+  .mode:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: -2px;
+  }
+
+  .shade {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ---------- Medium screens: no labels on the drone ---------- */
+  @media (max-width: 1100px) {
+    .callouts {
+      display: none;
+    }
+  }
+
+  /* ---------- Small screens: drone on top, copy and modes below ---------- */
+  @media (max-width: 860px) {
+    .hero {
+      display: flex;
+      flex-direction: column;
+      min-height: 600px;
+    }
+    .stage {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 220px;
+      background:
+        radial-gradient(ellipse 70% 55% at 50% 60%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 70%),
+        #050506;
+    }
+    .copy {
+      position: relative;
+      inset: auto;
+      translate: none;
+      width: auto;
+      padding: 0 20px;
+    }
+    .title {
+      margin-top: 10px;
+      font-size: clamp(1.6rem, 6.4vw, 2.2rem);
+    }
+    .text {
+      margin-top: 10px;
+      font-size: 15px;
+    }
+    .actions {
+      margin-top: 16px;
+    }
+    .status {
+      display: none;
+    }
+    .credit {
+      position: static;
+      order: 3;
+      padding: 0 20px 20px;
+    }
+    /* Modes first, under the header (Pop's button covers the bottom right corner). */
+    .modes {
+      position: relative;
+      inset: auto;
+      order: -1;
+      width: auto;
+      translate: none;
+      margin: 76px 12px 0;
+      grid-template-columns: repeat(4, 1fr);
+    }
+    .copy {
+      padding-bottom: 28px;
+    }
+    .mode {
+      grid-template-columns: 1fr;
+      padding: 12px 6px 12px;
+      text-align: center;
+    }
+    .mode-num,
+    .mode-hint {
+      display: none;
+    }
+    .mode-label {
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      font-stretch: 105%;
+    }
+  }
+  @media (max-width: 860px) and (max-height: 760px) {
+    .text {
+      display: none;
+    }
+  }
+
+  /* ---------- Opening, once on load ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .copy-mode > * {
+      animation: rise 900ms var(--ease-out-strong) backwards;
+      animation-delay: calc(300ms + var(--i, 0) * 90ms);
+    }
+    .mode {
+      animation: rise 800ms var(--ease-out-strong) backwards;
+    }
+    .mode:nth-child(1) {
+      animation-delay: 700ms;
+    }
+    .mode:nth-child(2) {
+      animation-delay: 770ms;
+    }
+    .mode:nth-child(3) {
+      animation-delay: 840ms;
+    }
+    .mode:nth-child(4) {
+      animation-delay: 910ms;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status-dot {
+      animation: none;
+    }
+    .drone {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { currentMode, onModeChange, setMode, MODES } from '../../lib/mode';
+  import type { HeroDrone, Anchor } from '../../lib/hero-drone';
+
+  const hero = document.querySelector<HTMLElement>('.hero')!;
+  const buttons = [...hero.querySelectorAll<HTMLButtonElement>('[data-mode-btn]')];
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let drone: HeroDrone | null = null;
+
+  // ---- Mode selector: a radio group (arrows move and choose, like native radios).
+  const sync = () => {
+    const mode = currentMode();
+    buttons.forEach((b) => {
+      const on = b.dataset.modeBtn === mode;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+  };
+  sync();
+  buttons.forEach((b, i) => {
+    b.addEventListener('click', () => setMode(b.dataset.modeBtn as (typeof MODES)[number]));
+    b.addEventListener('keydown', (e) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      const next = buttons[(i + step + buttons.length) % buttons.length];
+      next.focus();
+      next.click();
+    });
+  });
+  onModeChange((mode) => {
+    sync();
+    drone?.setMode(mode);
+  });
+
+  // ---- The drone, once the page has painted.
+  const canvas = hero.querySelector<HTMLCanvasElement>('[data-drone]')!;
+  const webgl = (() => {
+    try {
+      return !!document.createElement('canvas').getContext('webgl2');
+    } catch {
+      return false;
+    }
+  })();
+  const start = async () => {
+    const { createHeroDrone } = await import('../../lib/hero-drone');
+    drone = await createHeroDrone(canvas, currentMode());
+    canvas.dataset.ready = '';
+    hero.dataset.live = '';
+
+    // Render only while the hero is on screen and the tab is visible.
+    let onScreen = true;
+    const update = () => drone!.setActive(onScreen && !document.hidden);
+    new IntersectionObserver(([e]) => {
+      onScreen = e.isIntersecting;
+      update();
+    }).observe(hero);
+    document.addEventListener('visibilitychange', update);
+    update();
+
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      hero.addEventListener('pointermove', (e) => {
+        const r = hero.getBoundingClientRect();
+        drone!.setPointer(((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1);
+      });
+    }
+
+    // Labels follow their part of the drone, pointing outwards from its centre.
+    const callouts = [...hero.querySelectorAll<HTMLElement>('.callout')];
+    drone.onFrame(() => {
+      if (innerWidth <= 1100) return;
+      const mode = currentMode();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      // Where each label wants to be: a short line up-right (or down-right) of its point.
+      // Labels go right of the drone (the copy is on the left), unless at the edge.
+      const placed = callouts
+        .filter((el) => el.dataset.for === mode)
+        .map((el) => {
+          const p = drone!.project(el.dataset.anchor as Anchor);
+          const right = p.x < w * 0.78;
+          return { el, p, right, dx: right ? 64 : -64, y: p.y + (p.y < h * 0.5 ? -34 : 34) };
+        })
+        .sort((a, b) => a.y - b.y);
+      // No two labels on top of each other: at least 70px apart vertically.
+      for (let i = 1; i < placed.length; i++) placed[i].y = Math.max(placed[i].y, placed[i - 1].y + 70);
+      for (const { el, p, right, dx, y } of placed) {
+        const dy = y - p.y;
+        el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+        el.style.setProperty('--len', `${Math.hypot(dx, dy).toFixed(1)}px`);
+        el.style.setProperty('--angle', `${((Math.atan2(dy, dx) * 180) / Math.PI).toFixed(1)}deg`);
+        el.style.setProperty('--tx', `${dx}px`);
+        el.style.setProperty('--ty', `${dy.toFixed(1)}px`);
+        el.style.setProperty('--side', right ? '0%' : '-100%');
+      }
+    });
+  };
+  if (webgl) {
+    const go = () => start().catch(() => {});
+    if (document.readyState === 'complete') requestAnimationFrame(go);
+    else addEventListener('load', go, { once: true });
+  }
+
+  // ---- Hand-over to the page: while the page scrolls over the hero, the stage moves
+  // down at half speed, blurs and darkens, and the copy fades out.
+  if (!still) {
+    const stage = hero.querySelector<HTMLElement>('.stage')!;
+    const shade = hero.querySelector<HTMLElement>('.shade')!;
+    const overlays = hero.querySelectorAll<HTMLElement>('.copy, .modes, .status');
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const p = Math.min(1, Math.max(0, scrollY / hero.offsetHeight));
+      if (p >= 1 && stage.dataset.done) return;
+      stage.dataset.done = p >= 1 ? '1' : '';
+      stage.style.transform = `translate3d(0, ${(scrollY * 0.5).toFixed(1)}px, 0) scale(${(1 + p * 0.08).toFixed(4)})`;
+      stage.style.filter = p > 0 ? `blur(${(p * 12).toFixed(2)}px)` : '';
+      shade.style.opacity = (p * 0.75).toFixed(3);
+      overlays.forEach((el) => (el.style.opacity = Math.max(0, 1 - p * 2.5).toFixed(3)));
+    };
+    addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(update);
+        }
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>

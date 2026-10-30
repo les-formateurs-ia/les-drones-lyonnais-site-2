@@ -1,0 +1,62 @@
+---
+// /prestations/ — the hub of the drone services, rebuilt from the current page:
+// technical or artistic choice (two photo cards), both catalogues, the five-step method, quote request.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import PrestationsHero from '../components/prestations/PrestationsHero.astro';
+import ServiceCatalog from '../components/prestations/ServiceCatalog.astro';
+import Method from '../components/prestations/Method.astro';
+import FinalCta from '../components/home/FinalCta.astro';
+import { SERVICES } from '../data/services';
+import { SITE } from '../data/site';
+
+// Title and description keep the intent of the current WordPress page.
+const title = 'Prestations drone et audiovisuelles à Lyon | Les Drones Lyonnais';
+const description =
+  'Inspection, modélisation 3D, prises de vues aériennes et production vidéo : découvrez nos prestations à Lyon et en France. Présentez-nous votre projet.';
+const pageUrl = `${SITE.url}/prestations/`;
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Accueil', item: `${SITE.url}/` },
+      { '@type': 'ListItem', position: 2, name: 'Prestations', item: pageUrl },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Prestations drone et audiovisuelles',
+    itemListElement: SERVICES.map((s, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: s.label,
+      url: new URL(s.href, SITE.url).href,
+    })),
+  },
+];
+---
+
+<BaseLayout title={title} description={description} headerOverlay>
+  {structuredData.map((data) => <JsonLd slot="head" data={data} />)}
+  <PrestationsHero />
+  <!-- The family chosen in the hero comes first (html[data-famille], set by the hero). -->
+  <div class="catalogs">
+    <ServiceCatalog family="technique" />
+    <ServiceCatalog family="artistique" dark />
+  </div>
+  <Method />
+  <FinalCta title="Besoin d’une solution sur mesure ?" text="Parlez-nous de votre projet : nous revenons vers vous avec une proposition et un devis détaillé." />
+</BaseLayout>
+
+<style>
+  .catalogs {
+    display: flex;
+    flex-direction: column;
+  }
+  :global(html[data-famille='artistique'] #artistique) {
+    order: -1;
+  }
+</style>

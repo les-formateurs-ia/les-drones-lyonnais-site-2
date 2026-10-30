@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+/* One variable file: weight 100–900 and width 62–125%. Wide cuts set the titles,
+   the normal width carries the reading text. */
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("/fonts/archivo-variable.woff2") format("woff2-variations");
+}
+
+/* Design tokens — Les Drones Lyonnais.
+   The brand is black and white photography with a gold line; each activity keeps
+   the colour of its LDL square (the "point" of the LDL monogram). */
+@theme {
+  --font-sans: "Archivo", system-ui, sans-serif;
+
+  --color-ink: #000;
+  --color-ink-soft: #2b2b2b;
+  --color-muted: #5c5c5c;
+  --color-line: #e3e3e1;
+  --color-paper: #fff;
+  --color-mist: #f1f1ef;
+
+  /* Gold from the logo. The light tone is for lines and dark backgrounds only;
+     text on white uses the deep tone, which passes contrast. */
+  --color-gold: #af854a;
+  --color-gold-deep: #85622f;
+
+  /* Activities */
+  --color-prestations: #0835bd;
+  --color-formations: #296321;
+  --color-location: #e25d02;
+  --color-boutique: #000;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-stretch: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--color-gold);
+    color: #fff;
+  }
+}
+
+/* Hover only where a real pointer can hover — no sticky hover after a tap. */
+@custom-variant hover-fine {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
+@utility wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4.5vw, 56px);
+}
+
+/* Section rhythm: every section breathes the same. */
+@utility section-pad {
+  padding-block: clamp(80px, 10vw, 128px);
+}
+
+/* Data labels (flight data, sensors, captions): the condensed cut of the same family,
+   like the readouts of a drone's screen. */
+@utility hud-text {
+  font-stretch: 75%;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Viewfinder: the four corner marks of the drone camera, drawn around any frame.
+   Colour with --vf (defaults to white on dark, set it to ink on light). */
+@utility viewfinder {
+  --vf: rgb(255 255 255 / 0.8);
+  --vf-size: 22px;
+  --vf-inset: 12px;
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: var(--vf-inset);
+    z-index: 3;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--vf), var(--vf)) top left / var(--vf-size) 1.5px,
+      linear-gradient(var(--vf), var(--vf)) top left / 1.5px var(--vf-size),
+      linear-gradient(var(--vf), var(--vf)) top right / var(--vf-size) 1.5px,
+      linear-gradient(var(--vf), var(--vf)) top right / 1.5px var(--vf-size),
+      linear-gradient(var(--vf), var(--vf)) bottom left / var(--vf-size) 1.5px,
+      linear-gradient(var(--vf), var(--vf)) bottom left / 1.5px var(--vf-size),
+      linear-gradient(var(--vf), var(--vf)) bottom right / var(--vf-size) 1.5px,
+      linear-gradient(var(--vf), var(--vf)) bottom right / 1.5px var(--vf-size);
+    background-repeat: no-repeat;
+  }
+}
+
+/* Wide display cut for titles. */
+@utility display {
+  font-stretch: 125%;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------------------
+   Motion system
+   Two kinds, both optional enhancements — without them every element
+   is simply visible:
+   1. Reveals: fire once when an element enters (data-reveal, needs JS,
+      see lib/reveal.ts). Stagger with --i.
+   2. Scroll-linked effects (curtain, expanding sections, manifesto,
+      parallax): native CSS scroll-driven animations, only where the
+      browser supports them.
+   Reduced motion: reveals become a plain fade, scroll-linked movement
+   is removed.
+------------------------------------------------------------------ */
+
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 800ms var(--ease-out-strong),
+    transform 800ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.js [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal] {
+    transform: none;
+    transition: opacity 400ms ease;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* A dark band opens from inset to full bleed as it scrolls in. */
+    .expand-in {
+      animation-name: expand-in;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 80%;
+    }
+  }
+}
+@keyframes expand-in {
+  from {
+    clip-path: inset(0 clamp(12px, 4vw, 64px));
+  }
+  to {
+    clip-path: inset(0 0);
+  }
+}
+
+/* Scroll-driven animations are written with longhands (animation-name, …-timeline):
+   the CSS minifier folds a timeline into the `animation` shorthand, which browsers
+   reject. Keep that form for any new scroll-linked effect. */
+
+/* ------------------------------------------------------------------
+   Homepage modes (data/modes.ts, lib/mode.ts)
+   The hero's drone sets html[data-mode]; content written for one mode carries
+   [data-for="<mode>"] and only shows in that mode. --accent follows the mode and
+   is animatable, so everything drawn with it changes colour smoothly.
+------------------------------------------------------------------ */
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3f6bff;
+}
+html[data-mode] {
+  transition: --accent 700ms ease;
+}
+html[data-mode='prestations'] {
+  --accent: #3f6bff;
+}
+html[data-mode='boutique'] {
+  --accent: #ffffff;
+}
+html[data-mode='location'] {
+  --accent: #ff7a1a;
+}
+html[data-mode='formations'] {
+  --accent: #5fd04c;
+}
+html[data-mode='prestations'] [data-for]:not([data-for='prestations']),
+html[data-mode='boutique'] [data-for]:not([data-for='boutique']),
+html[data-mode='location'] [data-for]:not([data-for='location']),
+html[data-mode='formations'] [data-for]:not([data-for='formations']) {
+  display: none !important;
+}
+/* Content arriving with a new mode settles in (only after a switch, not on load). */
+@media (prefers-reduced-motion: no-preference) {
+  html.mode-switched [data-for] {
+    animation: mode-in 600ms var(--ease-out-strong) both;
+    animation-delay: calc(var(--i, 0) * 50ms);
+  }
+}
+@keyframes mode-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+}

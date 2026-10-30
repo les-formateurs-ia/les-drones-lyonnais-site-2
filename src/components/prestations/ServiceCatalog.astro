@@ -1,0 +1,322 @@
+---
+// One family of services as a mosaic of photo cards: the photo fills the whole card and
+// the text sits on it, over a dark gradient. Sizes vary (one large card, tall and wide
+// ones) so the catalogue reads as a set of distinct cards, not a list. The artistic
+// family mirrors the layout of the technical one.
+// Photos are in colour, slightly muted at rest, full colour under the pointer.
+import SectionHeader from '../ui/SectionHeader.astro';
+import { servicePhoto } from '../../lib/service-photo';
+import { FAMILIES, SENSOR_LABEL, servicesOf, type ServiceFamily } from '../../data/services';
+import { ACTIVITIES } from '../../data/site';
+
+interface Props {
+  family: ServiceFamily;
+  dark?: boolean;
+}
+const { family, dark = false } = Astro.props;
+const info = FAMILIES[family];
+// Source photos are 16:9: kept whole, each card crops what it needs.
+const cards = await Promise.all(servicesOf(family).map(async (s) => ({ ...s, photo: await servicePhoto(s.image, 16 / 9) })));
+const total = String(cards.length).padStart(2, '0');
+// Position in the mosaic (see the grid below): large, tall and wide cards get a bigger image.
+const SIZES: Record<number, string> = {
+  0: '(min-width: 1024px) 66vw, 100vw',
+  3: '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw',
+  4: '(min-width: 1024px) 66vw, 100vw',
+  8: '(min-width: 1024px) 66vw, 100vw',
+};
+---
+
+<section id={family} aria-labelledby={`${family}-title`} class:list={['catalog section-pad scroll-mt-16', dark ? 'bg-ink text-white' : 'bg-paper']}>
+  <div class="wrap">
+    <SectionHeader id={`${family}-title`} title={info.title} color={ACTIVITIES.prestations.color} dark={dark}>
+      <p class:list={['font-semibold', dark ? 'text-white' : 'text-ink']}>{info.tagline}</p>
+      <p class="max-w-[46ch]">{info.description}</p>
+    </SectionHeader>
+
+    <ul class:list={['mosaic mt-14 lg:mt-20', dark && 'mirror']}>
+      {
+        cards.map((card, i) => (
+          <li class="cell" data-reveal style={{ '--i': i % 3 }}>
+            <a href={card.href} class="card">
+              <img
+                src={card.photo.src}
+                srcset={card.photo.srcset}
+                sizes={SIZES[i] ?? '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw'}
+                width={card.photo.width}
+                height={card.photo.height}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="top">
+                <span class="sensor hud-text">{SENSOR_LABEL[card.sensor]}</span>
+                <span class="num hud-text">
+                  {String(i + 1).padStart(2, '0')} / {total}
+                </span>
+              </span>
+              <span class="body">
+                <span class="title">{card.label}</span>
+                <span class="summary">{card.summary}</span>
+                <span class="cue">
+                  Découvrir
+                  <span class="arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square" />
+                    </svg>
+                  </span>
+                </span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  /* ---------- Mosaic ----------
+     Desktop, 3 columns (rows of --row):
+       1 1 2      cards 1 large, 4 tall, 5 and 9 wide
+       1 1 3
+       4 5 5
+       4 6 7
+       8 9 9                                              */
+  .mosaic {
+    --row: clamp(230px, 21vw, 300px);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+  .cell {
+    aspect-ratio: 4 / 3;
+  }
+  @media (min-width: 640px) {
+    .mosaic {
+      grid-template-columns: repeat(2, 1fr);
+      grid-auto-rows: var(--row);
+      grid-auto-flow: row dense;
+    }
+    .cell {
+      aspect-ratio: auto;
+    }
+    .cell:nth-child(9n + 1),
+    .cell:nth-child(9n + 5),
+    .cell:nth-child(9n + 9) {
+      grid-column: span 2;
+    }
+  }
+  @media (min-width: 1024px) {
+    .mosaic {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .cell:nth-child(9n + 1) {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+    .cell:nth-child(9n + 4) {
+      grid-row: span 2;
+    }
+    /* Second family: the same mosaic, mirrored. */
+    .mirror {
+      direction: rtl;
+    }
+    .mirror .cell {
+      direction: ltr;
+    }
+  }
+
+  /* ---------- Card ---------- */
+  .card {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    overflow: hidden;
+    color: #fff;
+    background: #111;
+  }
+  .card img {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.75) brightness(0.95);
+    transition:
+      filter 500ms ease,
+      transform 900ms var(--ease-out-strong);
+  }
+  /* Dark at the bottom for the text, a little at the top for the tags. */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0) 26%),
+      linear-gradient(rgb(0 0 0 / 0) 35%, rgb(0 0 0 / 0.55) 62%, rgb(0 0 0 / 0.9));
+    transition: opacity 400ms ease;
+  }
+  /* Gold line drawn along the top of the card being looked at. */
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--color-gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 500ms var(--ease-out-strong);
+  }
+
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 16px 0;
+  }
+  .sensor {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(6px);
+  }
+  .sensor::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--color-gold);
+  }
+  .num {
+    padding-top: 5px;
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 clamp(18px, 2vw, 26px) clamp(18px, 2vw, 24px);
+  }
+  .title {
+    font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  .summary {
+    max-width: 42ch;
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgb(255 255 255 / 0.8);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .arrow {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    color: var(--color-ink);
+    background: var(--color-gold);
+    transition:
+      transform 400ms var(--ease-out-strong),
+      background-color 200ms ease;
+  }
+  .arrow svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Large card: bigger title, full summary. */
+  @media (min-width: 1024px) {
+    .cell:nth-child(9n + 1) .title {
+      font-size: clamp(1.8rem, 2.6vw, 2.4rem);
+    }
+    .cell:nth-child(9n + 1) .summary {
+      font-size: 17px;
+      -webkit-line-clamp: 3;
+    }
+    .cell:nth-child(9n + 1) .body {
+      padding: 0 32px 30px;
+    }
+  }
+
+  /* Small cards with a real pointer: the photo first; the summary slides in on hover
+     or focus (touch screens always show it). */
+  @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+    .cell:is(:nth-child(9n + 2), :nth-child(9n + 3), :nth-child(9n + 6), :nth-child(9n + 7), :nth-child(9n + 8)) {
+      .card::before {
+        background:
+          linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0) 26%),
+          linear-gradient(rgb(0 0 0 / 0) 50%, rgb(0 0 0 / 0.85));
+      }
+      .summary {
+        max-height: 0;
+        opacity: 0;
+        transition:
+          max-height 450ms var(--ease-out-strong),
+          opacity 300ms ease;
+      }
+      .card:is(:hover, :focus-visible) .summary {
+        max-height: 3em;
+        opacity: 1;
+      }
+      .card:is(:hover, :focus-visible)::before {
+        background:
+          linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0) 26%),
+          linear-gradient(rgb(0 0 0 / 0) 25%, rgb(0 0 0 / 0.6) 55%, rgb(0 0 0 / 0.9));
+      }
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .card:hover img {
+      filter: none;
+      transform: scale(1.05);
+    }
+    .card:hover::after {
+      transform: scaleX(1);
+    }
+    .card:hover .arrow {
+      transform: translateX(4px);
+    }
+  }
+  .card:focus-visible {
+    outline: 3px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+  .card:focus-visible img {
+    filter: none;
+  }
+  .card:focus-visible::after {
+    transform: scaleX(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card img,
+    .arrow {
+      transition: filter 300ms ease;
+      transform: none !important;
+    }
+  }
+</style>

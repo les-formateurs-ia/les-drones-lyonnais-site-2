@@ -1,0 +1,155 @@
+---
+// Closing band: the four activities drift past in very large type, each with its
+// LDL square, then the way to get in touch.
+import Button from '../ui/Button.astro';
+import Square from '../ui/Square.astro';
+import { NAV, SITE } from '../../data/site';
+import { Image } from 'astro:assets';
+import popCoucou from '../../assets/pop/coucou.webp';
+import { MODE_LIST } from '../../data/modes';
+
+interface Props {
+  title?: string;
+  text?: string;
+  /** Homepage: title, text, main button and Pop's question follow the page's mode. */
+  byMode?: boolean;
+}
+const {
+  title = 'Un projet de tournage, d’inspection ou de formation ?',
+  text = 'Décrivez-nous votre besoin : nous revenons vers vous avec une proposition et un devis détaillé.',
+  byMode = false,
+} = Astro.props;
+// Without modes, one version that is always shown.
+const versions = byMode
+  ? MODE_LIST.map((m) => ({ id: m.id as string | undefined, title: m.closing.title, text: m.closing.text, cta: m.cta, pop: m.pop as string | undefined }))
+  : [{ id: undefined, title, text, cta: { label: 'Demander un devis', href: SITE.contactPath }, pop: undefined }];
+
+// Black disappears on black: the shop's square turns white here.
+const squareColor = (id: string, color: string) => (id === 'boutique' ? 'var(--color-paper)' : color);
+---
+
+<section aria-labelledby={byMode ? undefined : 'cta-title'} aria-label={byMode ? 'Nous contacter' : undefined} class="expand-in overflow-hidden bg-ink text-white">
+  <div class="ticker border-b border-white/10 py-8 md:py-12" aria-hidden="true">
+    {
+      [0, 1].map(() => (
+        <div class="ticker-track">
+          {NAV.map((item) => (
+            <span class="ticker-item flex items-center gap-[0.35em] pr-[0.6em]" data-id={item.id}>
+              <Square color={squareColor(item.id, item.color)} class="size-[0.3em]" />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="wrap section-pad grid gap-10 lg:grid-cols-12 lg:items-end">
+    <div class="lg:col-span-7" data-reveal>
+      {
+        versions.map((v) => (
+          <div data-for={v.id}>
+            <h2 id={v.id ? undefined : 'cta-title'} class="display text-[clamp(2.2rem,4.6vw,3.8rem)]">
+              {v.title}
+            </h2>
+            <p class="mt-6 max-w-[48ch] text-lg leading-relaxed text-white/70">{v.text}</p>
+          </div>
+        ))
+      }
+    </div>
+    <div class="flex flex-col gap-6 lg:col-span-5 lg:items-end" data-reveal style={{ '--i': 2 }}>
+      {
+        versions.map((v) => (
+          <div class="flex flex-wrap gap-3" data-for={v.id}>
+            <Button href={v.cta.href} variant="gold">
+              {v.cta.label}
+            </Button>
+            <Button href={SITE.phoneHref} variant="outline-light">
+              {SITE.phone}
+            </Button>
+          </div>
+        ))
+      }
+      {
+        versions.map((v) => (
+          <button type="button" class="ask-pop" data-pop-open data-pop-ask={v.pop} data-for={v.id}>
+            <Image src={popCoucou} alt="" width={72} densities={[1, 2]} class="ask-pop-img" />
+            <span>{v.pop ? `« ${v.pop} » Demandez à Pop` : 'Une question ? Demandez à Pop'}</span>
+          </button>
+        ))
+      }
+      <a href={`mailto:${SITE.email}`} class="text-white/70 underline decoration-white/30 underline-offset-4 hover-fine:text-white hover-fine:decoration-gold">{SITE.email}</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .ask-pop {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .ask-pop-img {
+    width: 56px;
+    height: auto;
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ask-pop:hover .ask-pop-img {
+      transform: translateY(-4px) rotate(-6deg);
+    }
+    .ask-pop:hover span {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+  }
+  .ticker {
+    display: flex;
+    overflow: hidden;
+    font-size: clamp(1.6rem, 4vw, 3.6rem);
+    font-weight: 700;
+    font-stretch: 125%;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  /* Homepage: the activity of the current mode stands out. */
+  html[data-mode] .ticker-item {
+    opacity: 0.35;
+    transition: opacity 600ms ease;
+  }
+  html[data-mode='prestations'] .ticker-item[data-id='prestations'],
+  html[data-mode='boutique'] .ticker-item[data-id='boutique'],
+  html[data-mode='location'] .ticker-item[data-id='location'],
+  html[data-mode='formations'] .ticker-item[data-id='formations'] {
+    opacity: 1;
+  }
+  .ticker-track {
+    display: flex;
+    flex-shrink: 0;
+    animation: ticker 40s linear infinite;
+  }
+  @keyframes ticker {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* Homepage: the activity of the current mode stands out. */
+  html[data-mode] .ticker-item {
+    opacity: 0.35;
+    transition: opacity 600ms ease;
+  }
+  html[data-mode='prestations'] .ticker-item[data-id='prestations'],
+  html[data-mode='boutique'] .ticker-item[data-id='boutique'],
+  html[data-mode='location'] .ticker-item[data-id='location'],
+  html[data-mode='formations'] .ticker-item[data-id='formations'] {
+    opacity: 1;
+  }
+  .ticker-track {
+      animation: none;
+    }
+  }
+</style>
