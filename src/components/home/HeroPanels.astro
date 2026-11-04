@@ -1,0 +1,371 @@
+---
+// First screen, back to the format of the current WordPress homepage (client request,
+// 2026-11-04): three full-height panels side by side, each on a photo, for the three
+// doors of the site (Prestations, Formations, Boutique & location). The panel under the
+// pointer widens and its photo comes to life; the others recede. Hovering or focusing a
+// panel also sets the homepage mode (lib/mode.ts), so the offers under the hero follow.
+// Plain HTML links: works without JavaScript, still under reduced motion.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import Square from '../ui/Square.astro';
+import { HERO } from '../../data/home';
+import { ACTIVITIES, type ActivityId } from '../../data/site';
+import prestations from '../../assets/images/feed-prestations.jpg';
+import formations from '../../assets/images/feed-formations.jpg';
+import boutique from '../../assets/images/feed-boutique.jpg';
+
+interface Panel {
+  mode: ActivityId;
+  kicker: string;
+  title: string;
+  text: string;
+  photo: ImageMetadata;
+  /** Focal point of the photo (object-position) so the subject stays in a narrow panel. */
+  focus: string;
+  accent: string;
+  links: { label: string; href: string }[];
+}
+
+const PANELS: Panel[] = [
+  {
+    mode: 'prestations',
+    kicker: '01 · Prestations',
+    title: 'Prestations drone',
+    text: 'Inspection, thermographie, 3D et topographie, tournages et événements, partout en France.',
+    photo: prestations,
+    focus: '32% 40%',
+    accent: '#3f6bff',
+    links: [{ label: 'Nos prestations', href: ACTIVITIES.prestations.href }],
+  },
+  {
+    mode: 'formations',
+    kicker: '02 · Formations',
+    title: 'Formations drone',
+    text: 'Open, Spécifique, thermographie, photogrammétrie, cinéma : devenez télépilote professionnel.',
+    photo: formations,
+    focus: '58% 50%',
+    accent: '#5fd04c',
+    links: [{ label: 'Nos formations', href: ACTIVITIES.formations.href }],
+  },
+  {
+    mode: 'boutique',
+    kicker: '03 · Boutique & location',
+    title: 'Vente & location',
+    text: 'Drones DJI, accessoires et matériel audiovisuel, à acheter ou à louer à la journée.',
+    photo: boutique,
+    focus: '50% 60%',
+    accent: '#ffffff',
+    links: [
+      { label: 'La boutique', href: ACTIVITIES.boutique.href },
+      { label: 'La location', href: ACTIVITIES.location.href },
+    ],
+  },
+];
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <h1 id="hero-title" class="sr-only">{HERO.title}</h1>
+  <div class="stage">
+    {
+      PANELS.map((p, i) => (
+        <article class="panel" data-panel={p.mode} style={{ '--c': p.accent, '--i': i }}>
+          <div class="photo" aria-hidden="true">
+            <Image
+              src={p.photo}
+              alt=""
+              widths={[640, 960, 1400]}
+              sizes="(max-width: 767px) 100vw, 50vw"
+              loading="eager"
+              fetchpriority={i === 0 ? 'high' : 'auto'}
+              style={{ objectPosition: p.focus }}
+            />
+          </div>
+          <div class="content">
+            <p class="kicker hud-text">
+              <Square color="var(--c)" class="size-[9px]" />
+              {p.kicker}
+            </p>
+            <h2 class="title display">
+              {/* The first link covers the whole panel (::after), the others sit above it. */}
+              <a href={p.links[0].href} class="cover">
+                {p.title}
+              </a>
+            </h2>
+            <p class="text">{p.text}</p>
+            <div class="links">
+              {p.links.map((l) => (
+                <a href={l.href} class="link">
+                  {l.label}
+                  <span class="arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </article>
+      ))
+    }
+  </div>
+  <!-- Darkens as the page scrolls over the hero. -->
+  <div class="shade" aria-hidden="true"></div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    height: 100svh;
+    min-height: 640px;
+    overflow: hidden;
+    background: #050506;
+    color: #fff;
+  }
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    gap: 2px;
+    background: #000;
+    will-change: transform;
+  }
+
+  /* ---------- Panels ---------- */
+  .panel {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    isolation: isolate;
+    transition: flex-grow 700ms var(--ease-out-strong);
+  }
+  .photo,
+  .photo :global(img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .photo {
+    z-index: -1;
+    animation: rise 1400ms var(--ease-out-strong) both;
+    animation-delay: calc(var(--i) * 120ms);
+  }
+  .photo :global(img) {
+    transform: scale(1.06);
+    filter: saturate(0.75) brightness(0.8);
+    transition:
+      transform 1200ms var(--ease-out-strong),
+      filter 600ms ease;
+  }
+  /* Legibility: dark at the bottom, where the text sits, and a hint at the top for the header. */
+  .photo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to top, rgb(0 0 0 / 0.88), rgb(0 0 0 / 0.35) 45%, rgb(0 0 0 / 0.05) 70%, rgb(0 0 0 / 0.45)),
+      linear-gradient(to top, color-mix(in oklab, var(--c) 22%, transparent), transparent 40%);
+    transition: opacity 600ms ease;
+  }
+
+  .content {
+    position: absolute;
+    inset: auto 0 0;
+    padding: clamp(24px, 4vw, 56px) clamp(20px, 3vw, 48px);
+    animation: rise 1000ms var(--ease-out-strong) both;
+    animation-delay: calc(300ms + var(--i) * 120ms);
+  }
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.8);
+  }
+  .title {
+    margin-top: 14px;
+    font-size: clamp(28px, 2.9vw, 50px);
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+  .cover {
+    outline: none;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .text {
+    max-width: 34ch;
+    margin-top: 14px;
+    font-size: 16px;
+    line-height: 1.5;
+    color: rgb(255 255 255 / 0.82);
+  }
+  .links {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin-top: 22px;
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    font-size: 15px;
+    font-weight: 600;
+    border-bottom: 2px solid var(--c);
+  }
+  .arrow {
+    transition: transform 200ms var(--ease-out-strong);
+  }
+  .link:hover .arrow,
+  .link:focus-visible .arrow {
+    transform: translateX(4px);
+  }
+  .panel:has(.cover:focus-visible) {
+    outline: 2px solid var(--c);
+    outline-offset: -6px;
+  }
+  .link:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 4px;
+  }
+
+  /* ---------- Desktop: the hovered panel widens, the others recede ---------- */
+  @media (min-width: 768px) {
+    .text {
+      opacity: 0.7;
+      transition: opacity 500ms ease;
+    }
+    .stage:has(.panel:hover, .panel:focus-within) .panel {
+      flex-grow: 0.85;
+    }
+    .stage:has(.panel:hover, .panel:focus-within) .panel:is(:hover, :focus-within) {
+      flex-grow: 1.4;
+    }
+    .panel:is(:hover, :focus-within) .photo :global(img) {
+      transform: scale(1);
+      filter: saturate(1) brightness(0.95);
+    }
+    .panel:is(:hover, :focus-within) .text {
+      opacity: 1;
+    }
+    .stage:has(.panel:hover, .panel:focus-within) .panel:not(:hover, :focus-within) .photo :global(img) {
+      filter: saturate(0.3) brightness(0.55);
+    }
+  }
+
+  /* ---------- Phones: three stacked bands, all visible in one screen ---------- */
+  @media (max-width: 767px) {
+    .hero {
+      min-height: 600px;
+    }
+    .stage {
+      flex-direction: column;
+      padding-top: 64px; /* clear the header */
+    }
+    .content {
+      padding: 16px 20px 18px;
+    }
+    /* Clear the soft edge where the page meets the hero (index.astro, .page-over). */
+    .panel:last-child .content {
+      padding-bottom: 64px;
+    }
+    .title {
+      margin-top: 8px;
+      font-size: 28px;
+    }
+    .text {
+      display: none;
+    }
+    .links {
+      margin-top: 8px;
+    }
+    .link {
+      min-height: 40px;
+    }
+    .photo :global(img) {
+      filter: saturate(0.9) brightness(0.9);
+    }
+  }
+
+  .shade {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .photo,
+    .content {
+      animation: none;
+    }
+    .panel,
+    .photo :global(img),
+    .text,
+    .arrow {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { setMode } from '../../lib/mode';
+  import type { ActivityId } from '../../data/site';
+
+  const hero = document.querySelector<HTMLElement>('.hero')!;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // The panel the visitor looks at drives the rest of the homepage.
+  hero.querySelectorAll<HTMLElement>('[data-panel]').forEach((panel) => {
+    const go = () => setMode(panel.dataset.panel as ActivityId);
+    panel.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && go());
+    panel.addEventListener('focusin', go);
+  });
+
+  // Hand-over to the page: while the page scrolls over the hero, the panels move down at
+  // half speed, blur and darken.
+  if (!still) {
+    const stage = hero.querySelector<HTMLElement>('.stage')!;
+    const shade = hero.querySelector<HTMLElement>('.shade')!;
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const p = Math.min(1, Math.max(0, scrollY / hero.offsetHeight));
+      if (p >= 1 && stage.dataset.done) return;
+      stage.dataset.done = p >= 1 ? '1' : '';
+      stage.style.transform = p > 0 ? `translate3d(0, ${(scrollY * 0.5).toFixed(1)}px, 0)` : '';
+      stage.style.filter = p > 0 ? `blur(${(p * 10).toFixed(2)}px)` : '';
+      shade.style.opacity = (p * 0.75).toFixed(3);
+    };
+    addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(update);
+        }
+      },
+      { passive: true },
+    );
+    update();
+  }
+</script>

@@ -2,7 +2,7 @@
 import { getImage } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import JsonLd from '../components/seo/JsonLd.astro';
-import Hero from '../components/home/Hero.astro';
+import HeroPanels from '../components/home/HeroPanels.astro';
 import ModeFocus from '../components/home/ModeFocus.astro';
 import Manifesto from '../components/home/Manifesto.astro';
 import ClientLogos from '../components/home/ClientLogos.astro';
@@ -41,7 +41,7 @@ const organization = {
 
 <BaseLayout title={title} description={description} image={abs(social.src)} headerOverlay headerCompact mode={DEFAULT_MODE}>
   <JsonLd slot="head" data={organization} />
-  <Hero />
+  <HeroPanels />
   <!-- The rest of the page scrolls over the hero, which recedes (parallax + blur). -->
   <div class="page-over relative z-10 bg-ink">
     <!-- Follows the mode chosen in the hero, like the closing band. -->

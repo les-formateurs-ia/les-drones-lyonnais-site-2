@@ -59,6 +59,10 @@ public/            fonts, favicon, robots.txt
   Location, Formations. Each mode has its own set and flight (scan beam / showroom
   pedestal / landing pad / figure of eight through gates), labels pinned to the drone,
   copy and CTAs. Drag turns the drone. Content of the modes: src/data/modes.ts.
+- 2026-11-04 (client request): the first screen is back to the WordPress format, three
+  full-height panels on photos (HeroPanels.astro: Prestations, Formations, Vente &
+  location; hovered panel widens; hover/focus sets the mode). The 3D drone hero
+  (Hero.astro) is kept in the repo but no longer used by index.astro.
 - **The whole homepage follows the mode**: html[data-mode] (set before paint from
   ?mode= or sessionStorage by BaseLayout's `mode` prop, changed by lib/mode.ts) +
   `[data-for="<mode>"]` elements and the animatable `--accent` colour (global.css).
