@@ -11,6 +11,7 @@ import Button from '../components/ui/Button.astro';
 import ServiceHero from '../components/service/ServiceHero.astro';
 import ServiceProcess from '../components/service/ServiceProcess.astro';
 import ServiceCase from '../components/service/ServiceCase.astro';
+import CleaningWash from '../components/service/CleaningWash.astro';
 import popClap from '../assets/pop/clap.webp';
 import popIngenieur from '../assets/pop/ingenieur.webp';
 import { FAMILIES, SERVICES, type Service } from '../data/services';
@@ -74,6 +75,8 @@ const structuredData = [
 
 <BaseLayout title={`${service.label} à Lyon | ${SITE.name}`} description={page.description} pop={{ page: 'prestations' }}>
   {structuredData.map((d) => <JsonLd slot="head" data={d} />)}
+
+  {page.slug === 'nettoyage-par-drone' && <CleaningWash />}
 
   <div class="svc" data-family={service.family}>
     <ServiceHero service={service} page={page} photo={main} />

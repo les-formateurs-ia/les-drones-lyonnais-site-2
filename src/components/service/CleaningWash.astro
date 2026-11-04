@@ -1,0 +1,441 @@
+---
+// /nettoyage-par-drone/ only (client request, 2026-11-04): the page arrives dirty and a
+// cleaning drone, tethered to its high-pressure hose, washes it in passes.
+// The grime is one SVG (CSS background for the first paint, then drawn on a canvas the
+// drone erases). Fixed over the viewport, pointer-events: none: the page stays usable.
+// Skipped without JS and under prefers-reduced-motion (the page is simply clean).
+
+// Deterministic pseudo-random, so the build always draws the same grime.
+let seed = 11;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const W = 1600;
+const H = 1000;
+const f = (n: number) => n.toFixed(1);
+
+const drips = Array.from({ length: 26 }, () => {
+  const x = rnd() * W;
+  const w = 4 + rnd() * 10;
+  const h = 90 + rnd() * 330;
+  const top = rnd() < 0.6 ? -10 : rnd() * H * 0.5;
+  return `<rect x="${f(x)}" y="${f(top)}" width="${f(w)}" height="${f(h)}" rx="${f(w / 2)}" fill="url(#drip)" opacity="${f(0.35 + rnd() * 0.5)}"/>`;
+}).join('');
+
+const splats = Array.from({ length: 14 }, () => {
+  const cx = rnd() * W;
+  const cy = rnd() * H;
+  const r = 10 + rnd() * 26;
+  const dots = Array.from({ length: 7 }, () => {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (1.2 + rnd() * 1.6);
+    return `<circle cx="${f(cx + Math.cos(a) * d)}" cy="${f(cy + Math.sin(a) * d)}" r="${f(1.5 + rnd() * r * 0.22)}"/>`;
+  }).join('');
+  return `<g fill="#4a3a26" opacity="${f(0.45 + rnd() * 0.35)}"><ellipse cx="${f(cx)}" cy="${f(cy)}" rx="${f(r)}" ry="${f(r * (0.7 + rnd() * 0.4))}"/>${dots}</g>`;
+}).join('');
+
+const rings = Array.from({ length: 6 }, () => {
+  const r = 40 + rnd() * 90;
+  return `<circle cx="${f(rnd() * W)}" cy="${f(rnd() * H)}" r="${f(r)}" fill="none" stroke="#6b5a3e" stroke-width="${f(2 + rnd() * 4)}" opacity="0.35"/>`;
+}).join('');
+
+const grimeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice">
+<defs>
+<filter id="mud" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.0045 0.007" numOctaves="4" seed="7"/><feColorMatrix values="0 0 0 0 0.34  0 0 0 0 0.28  0 0 0 0 0.19  1.9 0 0 0 -0.52"/></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0.22  0 0 0 0 0.18  0 0 0 0 0.12  0 0 0 7 -4.3"/></filter>
+<radialGradient id="moss"><stop offset="0" stop-color="#55602c" stop-opacity="0.55"/><stop offset="1" stop-color="#55602c" stop-opacity="0"/></radialGradient>
+<linearGradient id="drip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f3220"/><stop offset="0.7" stop-color="#3f3220" stop-opacity="0.6"/><stop offset="1" stop-color="#3f3220" stop-opacity="0"/></linearGradient>
+<mask id="finger"><rect width="${W}" height="${H}" fill="#fff"/><text x="800" y="905" transform="rotate(-6 800 905)" font-family="'Segoe Print','Bradley Hand','Comic Sans MS',cursive" font-size="76" font-weight="700" fill="#000" fill-opacity="0.8" text-anchor="middle">lave-moi !</text></mask>
+</defs>
+<g mask="url(#finger)">
+<rect width="${W}" height="${H}" fill="#8a7653" opacity="0.28"/>
+<rect width="${W}" height="${H}" filter="url(#mud)"/>
+<ellipse cx="0" cy="${H}" rx="520" ry="380" fill="url(#moss)"/>
+<ellipse cx="${W}" cy="0" rx="460" ry="300" fill="url(#moss)"/>
+<ellipse cx="${W * 0.62}" cy="${H}" rx="380" ry="200" fill="url(#moss)"/>
+${rings}${drips}${splats}
+<rect width="${W}" height="${H}" filter="url(#grain)"/>
+</g>
+</svg>`;
+const grimeUrl = `data:image/svg+xml,${encodeURIComponent(grimeSvg)}`;
+---
+
+<div class="wash" data-wash style={`--grime: url("${grimeUrl}")`} aria-hidden="true">
+  <canvas class="dirt"></canvas>
+  <canvas class="fx"></canvas>
+  <div class="drone">
+    <svg viewBox="-60 -60 120 120" width="120" height="120">
+      <g class="shadow" transform="translate(10 14)" opacity="0.28">
+        <path d="M-34 -34 L34 34 M34 -34 L-34 34" stroke="#000" stroke-width="9" stroke-linecap="round" />
+        <rect x="-16" y="-13" width="32" height="26" rx="8" />
+      </g>
+      <path d="M-34 -34 L34 34 M34 -34 L-34 34" stroke="#2b2f36" stroke-width="7" stroke-linecap="round" />
+      {
+        [
+          [-34, -34],
+          [34, -34],
+          [-34, 34],
+          [34, 34],
+        ].map(([x, y], i) => (
+          <g transform={`translate(${x} ${y})`}>
+            <circle r="21" fill="rgb(255 255 255 / 0.14)" stroke="rgb(255 255 255 / 0.35)" stroke-width="1" />
+            <g class="prop" style={{ '--d': i % 2 ? 'reverse' : 'normal' }}>
+              <rect x="-20" y="-2.6" width="40" height="5.2" rx="2.6" fill="#e9edf2" />
+            </g>
+            <circle r="4.5" fill="#1d2025" />
+          </g>
+        ))
+      }
+      <rect x="-17" y="-14" width="34" height="28" rx="8" fill="#f2f4f7" stroke="#2b2f36" stroke-width="2" />
+      <rect x="-9" y="-7" width="18" height="14" rx="3" fill="#2b9be0" />
+      <path d="M17 -3 H40 V3 H17 Z" fill="#2b2f36" />
+      <circle cx="42" cy="0" r="4" fill="#ffd23f" />
+    </svg>
+  </div>
+  <div class="hud hud-text"><span class="dot"></span><span data-wash-label>Nettoyage haute pression</span> <b data-wash-pct>0 %</b></div>
+  <div class="shine"></div>
+</div>
+<button type="button" class="wash-skip hud-text" data-wash-skip>Passer le nettoyage</button>
+
+<style>
+  .wash,
+  .wash-skip {
+    display: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .wash {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      pointer-events: none;
+      background: var(--grime) center / cover no-repeat;
+      transition: opacity 600ms ease;
+    }
+    :global(.js) .wash-skip {
+      display: block;
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 201;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #fff;
+      background: rgb(20 22 26 / 0.8);
+      border: 1px solid rgb(255 255 255 / 0.3);
+      cursor: pointer;
+      transition:
+        opacity 300ms ease,
+        background 200ms ease;
+    }
+  }
+  .wash.is-drawn {
+    background: none;
+  }
+  .wash.is-done,
+  .wash-skip.is-done {
+    opacity: 0;
+  }
+  .wash-skip:hover {
+    background: rgb(20 22 26 / 0.95);
+  }
+  .wash-skip:focus-visible {
+    outline: 2px solid #2b9be0;
+    outline-offset: 2px;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .drone {
+    position: absolute;
+    top: 0;
+    left: 0;
+    --s: clamp(110px, 10vw, 170px);
+    width: var(--s);
+    height: var(--s);
+    margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+    transform: translate(-200px, -200px);
+    will-change: transform;
+  }
+  .drone svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .prop {
+    animation: spin 90ms linear infinite;
+    animation-direction: var(--d);
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .hud {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    background: rgb(20 22 26 / 0.8);
+    border: 1px solid rgb(255 255 255 / 0.3);
+  }
+  .hud b {
+    min-width: 4ch;
+    color: #7fd3ff;
+    font-variant-numeric: tabular-nums;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2b9be0;
+    animation: blink 900ms ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  .shine {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.55) 48%, rgb(255 255 255 / 0.8) 50%, transparent 62%);
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  .wash.is-shining .shine {
+    animation: shine 900ms cubic-bezier(0.45, 0, 0.2, 1) forwards;
+  }
+  @keyframes shine {
+    from {
+      transform: translateX(-110%);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(110%);
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  const wash = document.querySelector<HTMLElement>('[data-wash]');
+  const skip = document.querySelector<HTMLButtonElement>('[data-wash-skip]');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (wash && skip && !reduce) run(wash, skip);
+
+  function run(wash: HTMLElement, skip: HTMLButtonElement) {
+    const [dirt, fx] = wash.querySelectorAll('canvas');
+    const drone = wash.querySelector<HTMLElement>('.drone')!;
+    const pctEl = wash.querySelector<HTMLElement>('[data-wash-pct]')!;
+    const labelEl = wash.querySelector<HTMLElement>('[data-wash-label]')!;
+    const nozzle = drone.offsetWidth * 0.36;
+    const dctx = dirt.getContext('2d')!;
+    const fctx = fx.getContext('2d')!;
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    const w = innerWidth;
+    const h = innerHeight;
+    for (const c of [dirt, fx]) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+    }
+    dctx.scale(dpr, dpr);
+    fctx.scale(dpr, dpr);
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      removeEventListener('keydown', onKey);
+      wash.classList.add('is-done');
+      skip.classList.add('is-done');
+      setTimeout(() => {
+        wash.remove();
+        skip.remove();
+      }, 650);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && finish();
+    addEventListener('keydown', onKey);
+    skip.addEventListener('click', finish);
+
+    // The flight: back-and-forth passes from top to bottom, turning off screen.
+    const passes = h < 560 ? 3 : 4;
+    const swath = (h / passes) * 1.3;
+    const out = 90;
+    const pts: [number, number][] = [];
+    for (let i = 0; i < passes; i++) {
+      const y = (h / passes) * (i + 0.5);
+      const [a, b] = i % 2 ? [w + out, -out] : [-out, w + out];
+      pts.push([a, y], [b, y]);
+    }
+    const segs = pts.slice(1).map((p, i) => {
+      const q = pts[i];
+      return { q, p, len: Math.hypot(p[0] - q[0], p[1] - q[1]) };
+    });
+    const total = segs.reduce((s, g) => s + g.len, 0);
+    const at = (d: number): [number, number] => {
+      for (const g of segs) {
+        if (d <= g.len) {
+          const k = d / g.len;
+          return [g.q[0] + (g.p[0] - g.q[0]) * k, g.q[1] + (g.p[1] - g.q[1]) * k];
+        }
+        d -= g.len;
+      }
+      return pts[pts.length - 1];
+    };
+    const duration = Math.min(6200, Math.max(4200, total * 1.05));
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) * 0.15 + t * 0.85;
+
+    type Drop = { x: number; y: number; vx: number; vy: number; life: number; max: number; streak: boolean };
+    const drops: Drop[] = [];
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      if (finished) return;
+      // Same framing as background-size: cover.
+      const s = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+      const iw = img.naturalWidth * s;
+      const ih = img.naturalHeight * s;
+      dctx.drawImage(img, (w - iw) / 2, (h - ih) / 2, iw, ih);
+      wash.classList.add('is-drawn');
+      setTimeout(() => requestAnimationFrame(start), 450);
+    };
+    img.onerror = finish;
+    img.src = getComputedStyle(wash).backgroundImage.replace(/^url\(["']?|["']?\)$/g, '');
+
+    let t0 = 0;
+    let last = 0;
+    let prev = at(0);
+    let heading = 0;
+    function start(now: number) {
+      t0 = now;
+      last = now;
+      frame(now);
+    }
+
+    function frame(now: number) {
+      if (finished) return;
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const t = Math.min(1, (now - t0) / duration);
+      const pos = at(ease(t) * total);
+
+      // Wash: erase the grime along the way, soft edges.
+      dctx.save();
+      dctx.globalCompositeOperation = 'destination-out';
+      dctx.lineCap = 'round';
+      dctx.lineWidth = swath * 0.82;
+      dctx.shadowColor = '#000';
+      dctx.shadowBlur = swath * 0.18 * dpr;
+      dctx.beginPath();
+      dctx.moveTo(prev[0], prev[1]);
+      dctx.lineTo(pos[0] + 0.01, pos[1]);
+      dctx.stroke();
+      dctx.restore();
+
+      const dx = pos[0] - prev[0];
+      const dy = pos[1] - prev[1];
+      if (Math.hypot(dx, dy) > 0.5) {
+        const target = Math.atan2(dy, dx);
+        let diff = target - heading;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        heading += diff * Math.min(1, dt * 10);
+      }
+      const dir = Math.cos(heading) >= 0 ? 1 : -1;
+      prev = pos;
+
+      // Water: spray around the nozzle, streaks running down the clean surface.
+      const onScreen = pos[0] > -40 && pos[0] < w + 40;
+      if (onScreen) {
+        for (let i = 0; i < 7; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = 60 + Math.random() * 220;
+          drops.push({ x: pos[0] + dir * nozzle, y: pos[1], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.35 + Math.random() * 0.3, streak: false });
+        }
+        if (Math.random() < 0.55) {
+          drops.push({
+            x: pos[0] - dir * (30 + Math.random() * 80),
+            y: pos[1] + (Math.random() - 0.3) * swath * 0.5,
+            vx: 0,
+            vy: 40 + Math.random() * 60,
+            life: 0,
+            max: 0.9 + Math.random() * 0.8,
+            streak: true,
+          });
+        }
+      }
+
+      fctx.clearRect(0, 0, w, h);
+      // Hose from the pump, bottom centre.
+      fctx.lineCap = 'round';
+      fctx.beginPath();
+      fctx.moveTo(w * 0.5, h + 30);
+      fctx.quadraticCurveTo(pos[0], h + 10, pos[0] - dir * 6, pos[1] + 8);
+      fctx.strokeStyle = 'rgb(20 22 26 / 0.85)';
+      fctx.lineWidth = 7;
+      fctx.stroke();
+      fctx.strokeStyle = 'rgb(255 210 63 / 0.7)';
+      fctx.lineWidth = 2;
+      fctx.stroke();
+      // Mist.
+      if (onScreen) {
+        const r = swath * 0.42;
+        const g = fctx.createRadialGradient(pos[0] + dir * nozzle, pos[1], 0, pos[0] + dir * nozzle, pos[1], r);
+        g.addColorStop(0, 'rgb(225 245 255 / 0.55)');
+        g.addColorStop(1, 'rgb(225 245 255 / 0)');
+        fctx.fillStyle = g;
+        fctx.beginPath();
+        fctx.arc(pos[0] + dir * nozzle, pos[1], r, 0, Math.PI * 2);
+        fctx.fill();
+      }
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.life += dt;
+        if (d.life >= d.max) {
+          drops.splice(i, 1);
+          continue;
+        }
+        const k = 1 - d.life / d.max;
+        d.x += d.vx * dt;
+        d.y += d.vy * dt;
+        if (d.streak) {
+          fctx.strokeStyle = `rgb(200 235 255 / ${0.55 * k})`;
+          fctx.lineWidth = 2;
+          fctx.beginPath();
+          fctx.moveTo(d.x, d.y - 26);
+          fctx.lineTo(d.x, d.y);
+          fctx.stroke();
+        } else {
+          d.vy += 300 * dt;
+          fctx.fillStyle = `rgb(215 240 255 / ${0.85 * k})`;
+          fctx.fillRect(d.x, d.y, 2.4, 2.4);
+        }
+      }
+
+      drone.style.transform = `translate(${pos[0]}px, ${pos[1]}px) rotate(${heading}rad)`;
+      pctEl.textContent = `${Math.round(t * 100)} %`;
+
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        labelEl.textContent = 'Surface propre';
+        dctx.clearRect(0, 0, w, h);
+        fctx.clearRect(0, 0, w, h);
+        wash.classList.add('is-shining');
+        setTimeout(finish, 1100);
+      }
+    }
+  }
+</script>
