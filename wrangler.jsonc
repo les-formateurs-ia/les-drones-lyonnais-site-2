@@ -1,0 +1,12 @@
+// Static site: Astro builds to dist/, served as Workers static assets (no Worker code yet).
+// html_handling keeps the WordPress-style trailing-slash URLs (/prestations/).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "les-drones-lyonnais-site-2",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}
