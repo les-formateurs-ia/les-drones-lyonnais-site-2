@@ -12,6 +12,7 @@ import ServiceHero from '../components/service/ServiceHero.astro';
 import ServiceProcess from '../components/service/ServiceProcess.astro';
 import ServiceCase from '../components/service/ServiceCase.astro';
 import CleaningWash from '../components/service/CleaningWash.astro';
+import DeliverablesPreview from '../components/service/DeliverablesPreview.astro';
 import popClap from '../assets/pop/clap.webp';
 import popIngenieur from '../assets/pop/ingenieur.webp';
 import { FAMILIES, SERVICES, type Service } from '../data/services';
@@ -34,6 +35,8 @@ const main = photos[photos.length - 1];
 // The page's own photos (without the catalogue one), for the film strip.
 const own = photos.slice(0, -1);
 const contact = `${SITE.contactPath}?prestation=${page.slug}`;
+// Deliverables with previews take the full width, under the method.
+const previews = !!page.deliverables?.items.some((d) => d.preview);
 const n2 = (i: number) => String(i + 1).padStart(2, '0');
 
 // Related services: the ones the team links, completed with the same family.
@@ -193,7 +196,14 @@ const structuredData = [
                 </ul>
               </div>
             )}
-            {page.deliverables && (
+            {page.deliverables && previews && (
+              <div class="exports-previews" data-reveal style={{ '--i': 1 }}>
+                <p class="kicker hud-text">{page.deliverables.kicker ?? 'Livrables'}</p>
+                <h2 class="display h3">{page.deliverables.title}</h2>
+                <DeliverablesPreview items={page.deliverables.items} />
+              </div>
+            )}
+            {page.deliverables && !previews && (
               <div class="exports" data-reveal style={{ '--i': 1 }}>
                 <p class="kicker hud-text">{page.deliverables.kicker ?? (tech ? 'Livrables' : 'Livraison')}</p>
                 <h2 class="display h3">{page.deliverables.title}</h2>
@@ -670,6 +680,9 @@ const structuredData = [
   }
   .kit-grid > :only-child {
     grid-column: 1 / -1;
+  }
+  .kit-grid:has(> .exports-previews) {
+    grid-template-columns: minmax(0, 1fr);
   }
   .loadout ul {
     display: grid;

@@ -59,12 +59,12 @@ const page: ServicePage = {
     kicker: 'Livrables',
     title: 'Des fichiers prêts à être ouverts, mesurés et réutilisés',
     items: [
-      { title: 'Nuage de points', text: 'LAS, LAZ, E57 ou format compatible avec votre environnement logiciel.' },
-      { title: 'Orthophoto', text: 'Raster géoréférencé GeoTIFF, homogène et mesurable selon le cahier des charges.' },
-      { title: 'MNT / MNS', text: 'Modèles numériques du terrain ou des surfaces, maillages et courbes de niveau.' },
-      { title: 'Plans, coupes et profils', text: 'Exports 2D structurés en DXF, DWG ou PDF selon le projet.' },
-      { title: 'Volumes et cubatures', text: 'Bilans de stocks, déblai-remblai et comparaisons entre états de référence.' },
-      { title: 'Modèle 3D', text: 'Maillage texturé, OBJ et formats d’échange pour la conception ou la communication.' },
+      { title: 'Nuage de points', text: 'LAS, LAZ, E57 ou format compatible avec votre environnement logiciel.', preview: 'nuage-de-points', file: 'nuage_points.laz' },
+      { title: 'Orthophoto', text: 'Raster géoréférencé GeoTIFF, homogène et mesurable selon le cahier des charges.', preview: 'orthophoto', file: 'orthophoto.tif' },
+      { title: 'MNT / MNS', text: 'Modèles numériques du terrain ou des surfaces, maillages et courbes de niveau.', preview: 'mnt', file: 'mnt.tif' },
+      { title: 'Plans, coupes et profils', text: 'Exports 2D structurés en DXF, DWG ou PDF selon le projet.', preview: 'plans', file: 'plan_topo.dwg' },
+      { title: 'Volumes et cubatures', text: 'Bilans de stocks, déblai-remblai et comparaisons entre états de référence.', preview: 'volumes', file: 'cubatures.pdf' },
+      { title: 'Modèle 3D', text: 'Maillage texturé, OBJ et formats d’échange pour la conception ou la communication.', preview: 'modele-3d', file: 'modele_3d.obj' },
     ],
   },
   audience: {

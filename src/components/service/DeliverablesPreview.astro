@@ -1,0 +1,326 @@
+---
+// Deliverables with a preview of each (client request, 2026-11-05, /bureau-detude-drone/):
+// on large screens the list sits next to a "viewer" that shows the hovered / focused /
+// clicked deliverable; on smaller screens each item carries its own thumbnail.
+// Previews: src/assets/deliverables/<preview>.webp, illustrations of one synthetic site
+// rendered by `node scripts/render-deliverables.mjs` (marked "Exemple").
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import type { Deliverable } from '../../data/service-pages';
+
+interface Props {
+  items: Deliverable[];
+}
+const { items } = Astro.props;
+const files = import.meta.glob<{ default: ImageMetadata }>('../../assets/deliverables/*.webp', { eager: true });
+const img = (name?: string) => (name ? files[`../../assets/deliverables/${name}.webp`]?.default : undefined);
+const n2 = (i: number) => String(i + 1).padStart(2, '0');
+---
+
+<div class="dlv" data-dlv>
+  <div class="dlv-copy">
+    <ul class="dlv-list">
+      {
+        items.map((d, i) => (
+          <li>
+            <button type="button" class="dlv-item" data-dlv-item={i} aria-pressed={i === 0 ? 'true' : 'false'} aria-controls="dlv-viewer">
+              {img(d.preview) && (
+                <Image class="dlv-thumb" src={img(d.preview)!} alt="" width={160} height={120} widths={[160, 320]} sizes="80px" />
+              )}
+              <span class="dlv-body">
+                <span class="file hud-text" aria-hidden="true">
+                  LIV_{n2(i)}
+                </span>
+                <b>{d.title}</b>
+                {d.text && <span class="d-text">{d.text}</span>}
+              </span>
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <figure class="viewer" id="dlv-viewer" aria-live="polite">
+    <div class="bar hud-text">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      {items.map((d, i) => <span class:list={['fname', { 'is-on': i === 0 }]} data-dlv-show={i}>{d.file ?? d.title}</span>)}
+      <span class="tag">Exemple</span>
+    </div>
+    <div class="screen">
+      {
+        items.map(
+          (d, i) =>
+            img(d.preview) && (
+              <Image
+                class={i === 0 ? 'dlv-shot is-on' : 'dlv-shot'}
+                data-dlv-show={i}
+                src={img(d.preview)!}
+                alt={`Aperçu d’exemple : ${d.title.toLowerCase()}`}
+                widths={[600, 900, 1200]}
+                sizes="(min-width: 1024px) 56vw, 100vw"
+                loading={i === 0 ? 'eager' : 'lazy'}
+              />
+            ),
+        )
+      }
+      <span class="scan" aria-hidden="true"></span>
+    </div>
+    <figcaption class="hud-text">
+      {
+        items.map((d, i) => (
+          <span class:list={{ 'is-on': i === 0 }} data-dlv-show={i}>
+            {n2(i)} / {n2(items.length - 1)} · {d.title}
+          </span>
+        ))
+      }
+    </figcaption>
+  </figure>
+</div>
+
+<style>
+  .dlv {
+    display: grid;
+    gap: 40px 56px;
+  }
+  @media (min-width: 1024px) {
+    .dlv {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+    }
+  }
+  .dlv {
+    margin-top: 26px;
+  }
+  .dlv-list {
+    display: grid;
+    gap: 10px;
+  }
+  .dlv-item {
+    position: relative;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    width: 100%;
+    padding: 16px 18px 16px 20px;
+    text-align: left;
+    background: #fff;
+    border-left: 3px solid var(--hl-ink);
+    cursor: pointer;
+    transition:
+      background-color 200ms ease,
+      transform 200ms var(--ease-out-strong, ease-out),
+      box-shadow 200ms ease;
+  }
+  .dlv-body {
+    display: grid;
+    gap: 4px;
+  }
+  .dlv-item b {
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .file {
+    color: var(--color-muted);
+  }
+  .d-text {
+    line-height: 1.5;
+    color: var(--color-ink-soft);
+  }
+  .dlv-thumb {
+    flex: none;
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+  }
+  .dlv-item:focus-visible {
+    outline: 2px solid var(--hl-ink);
+    outline-offset: 2px;
+  }
+
+  /* ---------- Viewer ---------- */
+  .viewer {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .dlv-thumb {
+      display: none;
+    }
+    .dlv-item[aria-pressed='true'] {
+      background: var(--color-ink, #111);
+      color: #fff;
+      transform: translateX(6px);
+      box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.6);
+    }
+    .dlv-item[aria-pressed='true'] .d-text,
+    .dlv-item[aria-pressed='true'] .file {
+      color: rgb(255 255 255 / 0.7);
+    }
+    .viewer {
+      position: sticky;
+      top: 96px;
+      display: block;
+      margin: 0;
+      overflow: hidden;
+      color: #fff;
+      background: #0d1117;
+      border: 1px solid rgb(0 0 0 / 0.2);
+      box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.55);
+    }
+  }
+  .bar {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    background: #161b22;
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .dots {
+    display: flex;
+    gap: 6px;
+  }
+  .dots i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.2);
+  }
+  .fname {
+    color: rgb(255 255 255 / 0.85);
+  }
+  .tag {
+    margin-left: auto;
+    padding: 3px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hl);
+    border: 1px solid currentColor;
+  }
+  .screen {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+  }
+  .dlv-shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  figcaption {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.65);
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+  }
+  /* Only the active deliverable's file name, image and caption show. */
+  [data-dlv-show] {
+    visibility: hidden;
+  }
+  .fname[data-dlv-show],
+  figcaption [data-dlv-show] {
+    display: none;
+  }
+  [data-dlv-show].is-on {
+    visibility: visible;
+  }
+  .fname.is-on,
+  figcaption .is-on {
+    display: inline;
+  }
+  .dlv-shot.is-on {
+    z-index: 1;
+  }
+  .scan {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    width: 2px;
+    background: var(--hl);
+    box-shadow: 0 0 18px 4px color-mix(in srgb, var(--hl) 60%, transparent);
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    /* The new preview is "scanned in" from left to right over the previous one. */
+    .dlv-shot.is-entering {
+      animation: dlv-reveal 520ms cubic-bezier(0.65, 0, 0.35, 1) both;
+    }
+    .dlv-shot.is-leaving {
+      visibility: visible;
+      z-index: 0;
+    }
+    .scan.is-running {
+      animation: dlv-scan 520ms cubic-bezier(0.65, 0, 0.35, 1) both;
+    }
+    @keyframes dlv-reveal {
+      from {
+        clip-path: inset(0 100% 0 0);
+        transform: scale(1.03);
+      }
+      to {
+        clip-path: inset(0 0 0 0);
+        transform: none;
+      }
+    }
+    @keyframes dlv-scan {
+      0% {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(var(--w, 600px));
+      }
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .dlv-item:hover:not([aria-pressed='true']) {
+        transform: translateX(3px);
+      }
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-dlv]').forEach((root) => {
+    const items = [...root.querySelectorAll<HTMLButtonElement>('[data-dlv-item]')];
+    const screen = root.querySelector<HTMLElement>('.screen');
+    const scan = root.querySelector<HTMLElement>('.scan');
+    let current = -1;
+    const show = (i: number) => {
+      if (i === current) return;
+      const prev = current;
+      current = i;
+      items.forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
+      root.querySelectorAll<HTMLElement>('[data-dlv-show]').forEach((el) => {
+        const k = Number(el.dataset.dlvShow);
+        el.classList.toggle('is-on', k === i);
+        el.classList.toggle('is-leaving', k === prev && el.classList.contains('dlv-shot'));
+        el.classList.remove('is-entering');
+      });
+      if (prev < 0 || !screen || !scan) return;
+      const shot = root.querySelector<HTMLElement>(`.dlv-shot[data-dlv-show="${i}"]`);
+      if (!shot) return;
+      void shot.offsetWidth;
+      shot.classList.add('is-entering');
+      scan.style.setProperty('--w', `${screen.clientWidth}px`);
+      scan.classList.remove('is-running');
+      void scan.offsetWidth;
+      scan.classList.add('is-running');
+    };
+    items.forEach((b, i) => {
+      b.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && show(i));
+      b.addEventListener('focus', () => show(i));
+      b.addEventListener('click', () => show(i));
+    });
+    show(0);
+  });
+</script>

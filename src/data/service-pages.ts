@@ -9,6 +9,13 @@ export interface Item {
   text?: string;
 }
 
+/** A deliverable; `preview` names an image in src/assets/deliverables/ shown on hover. */
+export interface Deliverable extends Item {
+  preview?: string;
+  /** Example file name shown above the preview (e.g. nuage_points.laz). */
+  file?: string;
+}
+
 export interface ServicePage {
   /** Same as Service.href without slashes. */
   slug: string;
@@ -33,7 +40,7 @@ export interface ServicePage {
   /** Equipment, method or how it works (short list). */
   method?: { kicker?: string; title: string; intro?: string; items: string[] };
   /** What the client receives (3 to 6). */
-  deliverables?: { kicker?: string; title: string; items: Item[] };
+  deliverables?: { kicker?: string; title: string; items: Deliverable[] };
   /** Who it is for (short labels). */
   audience?: { title: string; items: string[] };
   /** The steps of a mission (3 to 5). */

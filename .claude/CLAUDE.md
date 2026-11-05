@@ -182,6 +182,13 @@ Skills: `ldl-art-direction` (identity), `seo-production`, `visual-qa`,
   pages/<slug>/), FAQ (FAQPage JSON-LD), related services. Pop appears once, in the
   closing CTA (new poses clap / ingenieur from generate-pop.mjs). Quote links:
   /contact/?prestation=<slug>.
+- /nettoyage-par-drone/ (2026-11-04): the page arrives dirty and a tethered cleaning drone
+  washes it (components/service/CleaningWash.astro, canvas; off under reduced motion).
+- /bureau-detude-drone/ deliverables (2026-11-05): hover / focus a deliverable to see its
+  preview (DeliverablesPreview.astro; `preview` + `file` on deliverable items; thumbnails
+  on small screens). Previews are illustrations of ONE synthetic site (quarry, stockpiles,
+  building), labelled "Exemple": `node scripts/render-deliverables.mjs` →
+  src/assets/deliverables/*.webp (renderer: scripts/deliverables/renderer.js).
 - Cart (2026-10-28): lib/cart.ts (localStorage, `ldl:cart` event) + components/shop/
   CartDrawer.astro in BaseLayout, header button [data-cart-open] with count. Any
   [data-cart-add] (data-cart-item JSON, optional data-cart-suggest, data-cart-qty,
