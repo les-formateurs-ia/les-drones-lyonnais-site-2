@@ -1,0 +1,232 @@
+---
+// /timelapse-chantier/ — a client's building site seen through a Tikee timelapse camera:
+// the live photo gallery, then the film of each month. Content in data/timelapse.ts
+// (updated by hand every month). Not indexed: it is a client page, linked on demand.
+//
+// Every player is sandboxed (IFRAME_SANDBOX): Tikee's "download" link stays in its menu
+// but the browser refuses the download. Months after the latest sit in <details>, so
+// their lazy iframes load only when opened. No client script.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Square from '../components/ui/Square.astro';
+import Button from '../components/ui/Button.astro';
+import { TIMELAPSE, IFRAME_SANDBOX } from '../data/timelapse';
+import { SITE } from '../data/site';
+
+const { site, intro, galleries, videos } = TIMELAPSE;
+const [latest, ...archive] = videos;
+
+const title = `Timelapse du chantier ${site} | Les Drones Lyonnais`;
+const description = `Suivez l’avancement du chantier ${site} : photos de la caméra timelapse et vidéo de chaque mois.`;
+---
+
+<BaseLayout title={title} description={description} noindex headerOverlay>
+  <section class="tl-top bg-ink text-white" aria-labelledby="tl-title">
+    <div class="wrap pt-32 pb-14 md:pt-40 md:pb-20">
+      <p class="hud-text flex items-center gap-2 text-white/70">
+        <span class="tl-live" aria-hidden="true"></span>
+        Caméra timelapse · suivi de chantier
+      </p>
+      <h1 id="tl-title" class="display mt-5 text-[clamp(2.4rem,6vw,4.6rem)]">{site}</h1>
+      <p class="mt-6 max-w-[620px] text-lg leading-relaxed text-white/75">{intro}</p>
+      <nav aria-label="Sur cette page" class="mt-8 flex flex-wrap gap-3">
+        <Button href="#photos" variant="gold" size="sm">Les photos</Button>
+        <Button href="#videos" variant="outline-light" size="sm">Les vidéos du mois</Button>
+      </nav>
+    </div>
+  </section>
+
+  <section id="photos" class="bg-ink pb-[clamp(80px,10vw,128px)] text-white" aria-labelledby="photos-title">
+    <div class="wrap border-t border-white/15 pt-14 md:pt-20">
+      <div class="flex items-start gap-4">
+        <Square color="var(--color-gold)" class="mt-[0.55em] size-3.5 md:size-4" />
+        <h2 id="photos-title" class="display text-[clamp(2rem,4vw,3.2rem)]">Les photos en direct</h2>
+      </div>
+      <p class="mt-4 max-w-[640px] text-lg leading-relaxed text-white/75">
+        Les images arrivent automatiquement de la caméra. Faites défiler les jours avec les flèches, ou passez en plein écran.
+      </p>
+
+      {
+        galleries.map((g) => (
+          <figure class="mt-10">
+            <div class="tl-frame viewfinder" style="--vf: var(--color-gold); --vf-inset: -10px;">
+              <iframe
+                src={g.src}
+                title={`${g.title} — ${site}`}
+                sandbox={IFRAME_SANDBOX}
+                allow="fullscreen"
+                allowfullscreen
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"
+                class="tl-gallery"
+              />
+            </div>
+            {galleries.length > 1 && <figcaption class="hud-text mt-4 text-white/60">{g.title}</figcaption>}
+          </figure>
+        ))
+      }
+    </div>
+  </section>
+
+  <section id="videos" class="section-pad bg-mist" aria-labelledby="videos-title">
+    <div class="wrap">
+      <div class="flex items-start gap-4">
+        <Square color="var(--color-gold)" class="mt-[0.55em] size-3.5 md:size-4" />
+        <h2 id="videos-title" class="display text-[clamp(2rem,4vw,3.2rem)]">Les vidéos du mois</h2>
+      </div>
+
+      {
+        latest ? (
+          <>
+            <p class="mt-4 max-w-[640px] text-lg leading-relaxed text-ink-soft">
+              Un mois de chantier en quelques secondes. La plus récente d’abord, les précédentes en dessous.
+            </p>
+            <article id={`video-${latest.month}`} class="mt-10">
+              <div class="tl-video bg-ink">
+                <iframe
+                  src={latest.src}
+                  title={`Timelapse ${latest.title} — ${site}`}
+                  sandbox={IFRAME_SANDBOX}
+                  allow="fullscreen; autoplay; picture-in-picture"
+                  allowfullscreen
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+              <div class="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <h3 class="text-2xl font-bold">{latest.title}</h3>
+                <span class="hud-text rounded-full bg-gold px-2.5 py-1 text-ink">Dernière vidéo</span>
+              </div>
+              {latest.note && <p class="mt-2 max-w-[640px] leading-relaxed text-ink-soft">{latest.note}</p>}
+            </article>
+
+            {archive.length > 0 && (
+              <div class="mt-14">
+                <h3 class="hud-text text-muted">Mois précédents</h3>
+                <ul class="mt-4 border-t border-line">
+                  {archive.map((v) => (
+                    <li id={`video-${v.month}`} class="border-b border-line">
+                      <details class="tl-month group">
+                        <summary class="flex min-h-14 cursor-pointer items-center justify-between gap-4 py-3 text-lg font-semibold">
+                          {v.title}
+                          <span class="tl-plus" aria-hidden="true" />
+                        </summary>
+                        <div class="pb-6">
+                          {v.note && <p class="mb-4 max-w-[640px] leading-relaxed text-ink-soft">{v.note}</p>}
+                          <div class="tl-video bg-ink">
+                            <iframe
+                              src={v.src}
+                              title={`Timelapse ${v.title} — ${site}`}
+                              sandbox={IFRAME_SANDBOX}
+                              allow="fullscreen; autoplay; picture-in-picture"
+                              allowfullscreen
+                              loading="lazy"
+                              referrerpolicy="strict-origin-when-cross-origin"
+                            />
+                          </div>
+                        </div>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          <p class="mt-6 max-w-[640px] border-l-2 border-gold pl-4 text-lg leading-relaxed text-ink-soft">
+            La première vidéo du chantier sera publiée ici à la fin du mois. En attendant, les photos ci-dessus sont mises à jour en continu.
+          </p>
+        )
+      }
+    </div>
+  </section>
+
+  <section class="section-pad" aria-labelledby="tl-cta">
+    <div class="wrap grid gap-6 lg:grid-cols-12 lg:items-end">
+      <div class="lg:col-span-7">
+        <h2 id="tl-cta" class="display text-[clamp(1.8rem,3.4vw,2.8rem)]">Un timelapse pour votre chantier ?</h2>
+        <p class="mt-4 max-w-[560px] text-lg leading-relaxed text-ink-soft">
+          Pose de la caméra, suivi en ligne, film de fin de chantier : Les Drones Lyonnais s’occupent de tout.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-3 lg:col-span-5 lg:justify-end">
+        <Button href="/suivi-de-chantier-timelapse/">Découvrir le suivi timelapse</Button>
+        <Button href={`${SITE.contactPath}?prestation=suivi-de-chantier-timelapse`} variant="outline">Demander un devis</Button>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* Recording light of the camera. */
+  .tl-live {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5484d;
+    box-shadow: 0 0 0 0 rgb(229 72 77 / 0.6);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .tl-live {
+      animation: tl-pulse 2s ease-out infinite;
+    }
+  }
+  @keyframes tl-pulse {
+    70% {
+      box-shadow: 0 0 0 8px rgb(229 72 77 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(229 72 77 / 0);
+    }
+  }
+
+  .tl-frame {
+    max-width: 1100px;
+  }
+  .tl-frame iframe,
+  .tl-video iframe {
+    display: block;
+    width: 100%;
+    border: 0;
+  }
+  /* The Tikee gallery is drawn for 900 × 620 on a dark page (its title is white); on
+     phones it needs more height than that ratio gives, or its controls overlap the photo. */
+  .tl-gallery {
+    aspect-ratio: 900 / 620;
+    min-height: 380px;
+    background: var(--color-ink);
+  }
+  .tl-video {
+    max-width: 1100px;
+    aspect-ratio: 16 / 9;
+  }
+  .tl-video iframe {
+    height: 100%;
+  }
+
+  .tl-month summary {
+    list-style: none;
+  }
+  .tl-month summary::-webkit-details-marker {
+    display: none;
+  }
+  .tl-plus {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .tl-plus::before,
+  .tl-plus::after {
+    content: '';
+    position: absolute;
+    inset: 7px 0;
+    background: currentColor;
+    transition: transform 200ms var(--ease-out-strong);
+  }
+  .tl-plus::after {
+    transform: rotate(90deg);
+  }
+  .tl-month[open] .tl-plus::after {
+    transform: rotate(0deg);
+  }
+</style>

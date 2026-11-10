@@ -198,6 +198,14 @@ Skills: `ldl-art-direction` (identity), `seo-production`, `visual-qa`,
   until Stripe Checkout. Sale product pages: quantity + "Ajouter au panier"; rentals
   keep the booking request.
 
+- /timelapse-chantier/ (2026-11-10): a client's building site (École Nat N°2) seen by a Tikee
+  timelapse camera: live Tikee photo gallery + the film of each month (latest large, older
+  months in <details> so their iframes load on opening). Content in src/data/timelapse.ts,
+  updated by hand monthly (new video at the TOP of `videos`). Every iframe is sandboxed
+  (IFRAME_SANDBOX, no allow-downloads / allow-popups): Tikee's "Téléchargement Image" link
+  stays in its menu but downloads nothing (tested in Chromium). noindex, not in the menu.
+  The Tikee gallery's title is white: keep it on a dark background.
+
 Next: /contact/ (receives ?commande=slug*qty,…, ?location=&du=&au=, ?formation=,
 ?prestation=), Stripe checkout (from the cart) and booking Worker, legal pages,
 redirect plan.
